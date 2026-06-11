@@ -1,0 +1,62 @@
+# jobkit master profile — the single source of truth every jobkit command
+# reads. Edit freely; run `jobkit profile validate` after changes.
+#
+# Levels: familiar | proficient | expert
+# Dates:  YYYY-MM, end may be "present"
+
+name: "Your Name"
+headline: "Software Engineer"
+email: "you@example.com"
+phone: ""
+location: "City, ST"
+links:
+  - label: GitHub
+    url: https://github.com/yourhandle
+  - label: LinkedIn
+    url: https://linkedin.com/in/yourhandle
+
+summary: >-
+  Software engineer with N years building X. Strengths in Y and Z.
+
+skills:
+  - name: Go
+    level: expert
+    years: 4
+    aliases: [golang]
+  - name: TypeScript
+    level: proficient
+    years: 5
+  - name: PostgreSQL
+    level: proficient
+    years: 4
+  - name: Kubernetes
+    level: familiar
+    aliases: [k8s]
+
+experience:
+  - company: "Acme Corp"
+    role: "Senior Software Engineer"
+    location: "Remote"
+    start: "2022-01"
+    end: "present"
+    bullets:
+      - text: "Designed and shipped a Go service handling 50k req/s with p99 < 40ms."
+        tags: [go, performance, distributed-systems]
+      - text: "Cut CI time 60% by parallelizing the test pipeline."
+        tags: [ci/cd, testing]
+
+projects:
+  - name: "side-project"
+    url: https://github.com/yourhandle/side-project
+    description: "One-line pitch."
+    bullets:
+      - text: "Built X with Y; N users / stars."
+        tags: [typescript]
+
+education:
+  - school: "State University"
+    degree: "B.S."
+    field: "Computer Science"
+    year: "2018"
+
+certifications: []

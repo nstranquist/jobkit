@@ -1,0 +1,166 @@
+# jobkit skills lexicon: canonical|alias1,alias2|category
+# Categories: language, framework, infra, cloud, data, practice, tool, domain
+Go|golang|language
+Python||language
+TypeScript|ts|language
+JavaScript|js, ecmascript|language
+Rust||language
+Java||language
+Kotlin||language
+Swift||language
+C++|cpp|language
+C#|csharp, dotnet, .net|language
+Ruby||language
+PHP||language
+Scala||language
+Elixir||language
+Haskell||language
+SQL||language
+Bash|shell scripting, zsh|language
+HTML||language
+CSS||language
+React|react.js, reactjs|framework
+React Native||framework
+Next.js|nextjs|framework
+Vue|vue.js, vuejs|framework
+Svelte|sveltekit|framework
+Angular||framework
+Node.js|node, nodejs|framework
+Express|express.js|framework
+Django||framework
+Flask||framework
+FastAPI||framework
+Rails|ruby on rails|framework
+Spring|spring boot|framework
+Laravel||framework
+GraphQL||framework
+gRPC|grpc|framework
+REST|restful, rest api, rest apis|framework
+WebSockets|websocket|framework
+Tailwind|tailwindcss, tailwind css|framework
+Electron||framework
+Tauri||framework
+Flutter||framework
+SwiftUI||framework
+Expo||framework
+tRPC|trpc|framework
+Kubernetes|k8s|infra
+Docker|containers, containerization|infra
+Terraform||infra
+Ansible||infra
+Helm||infra
+Nginx||infra
+Linux||infra
+CI/CD|ci, continuous integration, continuous delivery, continuous deployment|infra
+GitHub Actions||infra
+Jenkins||infra
+GitLab CI|gitlab|infra
+ArgoCD|argo cd|infra
+Prometheus||infra
+Grafana||infra
+OpenTelemetry|otel|infra
+Datadog||infra
+Sentry||infra
+Serverless|lambda functions|infra
+Microservices|micro-services, service-oriented|infra
+Distributed Systems|distributed computing|domain
+Service Mesh|istio, envoy|infra
+AWS|amazon web services|cloud
+GCP|google cloud, google cloud platform|cloud
+Azure||cloud
+Cloudflare|cloudflare workers|cloud
+Vercel||cloud
+Fly.io||cloud
+Heroku||cloud
+S3||cloud
+EC2||cloud
+ECS|fargate|cloud
+EKS||cloud
+DynamoDB||data
+PostgreSQL|postgres, psql|data
+MySQL||data
+SQLite||data
+MongoDB|mongo|data
+Redis||data
+Elasticsearch|opensearch|data
+ClickHouse|clickhouse db|data
+Kafka|apache kafka|data
+RabbitMQ||data
+Snowflake||data
+BigQuery||data
+Spark|apache spark, pyspark|data
+Airflow|apache airflow|data
+dbt||data
+ETL|elt, data pipelines, data pipeline|data
+Data Warehouse|data warehousing|data
+Supabase||data
+Firebase||data
+Convex||data
+Prisma||data
+ORM|sqlalchemy, gorm, typeorm, drizzle|data
+Vector Database|vector db, pgvector, pinecone, weaviate, qdrant|data
+Machine Learning|ml|domain
+Deep Learning||domain
+LLM|llms, large language models, large language model|domain
+Generative AI|genai, gen ai|domain
+RAG|retrieval-augmented generation, retrieval augmented generation|domain
+Prompt Engineering||domain
+LangChain||framework
+PyTorch|torch|framework
+TensorFlow||framework
+NLP|natural language processing|domain
+Computer Vision||domain
+MLOps|ml ops|domain
+AI Agents|agentic, agents, multi-agent|domain
+MCP|model context protocol|domain
+OpenAI|openai api, gpt-4, gpt-5|tool
+Anthropic|claude api, claude|tool
+Embeddings|embedding models|domain
+Fine-tuning|finetuning, fine tuning|domain
+Testing|unit testing, unit tests, integration testing, integration tests|practice
+TDD|test-driven development, test driven development|practice
+E2E Testing|end-to-end testing, playwright, cypress|practice
+Code Review|code reviews|practice
+Agile|scrum, kanban|practice
+System Design|architecture design, software architecture|practice
+API Design|api development|practice
+Performance|performance optimization, performance tuning, low latency, low-latency|practice
+Scalability|scalable systems, high availability, high-availability|practice
+Security|application security, appsec|domain
+Authentication|oauth, oauth2, oidc, sso, jwt|domain
+Cryptography|encryption|domain
+Observability|monitoring, telemetry, tracing|practice
+Incident Response|on-call, oncall, incident management|practice
+Debugging|troubleshooting|practice
+Refactoring||practice
+Documentation|technical writing|practice
+Mentoring|mentorship, coaching engineers|practice
+Technical Leadership|tech lead, team lead, leading teams|practice
+Cross-functional Collaboration|cross functional, stakeholder management|practice
+Git|version control|tool
+GitHub||tool
+Jira||tool
+Figma||tool
+Webpack|vite, esbuild, rollup, bundlers|tool
+pnpm|npm, yarn|tool
+Xcode||tool
+VS Code|vscode|tool
+gRPC-Web||framework
+Stripe|payments integration, billing systems|domain
+Blockchain|web3, smart contracts, solidity, ethereum|domain
+iOS|ios development|domain
+Android|android development|domain
+Mobile|mobile development|domain
+Frontend|front-end, front end|domain
+Backend|back-end, back end, server-side|domain
+Full Stack|full-stack, fullstack|domain
+DevOps||domain
+SRE|site reliability|domain
+Platform Engineering|developer platform, internal tools, developer experience, devex, dx|domain
+Embedded|embedded systems, firmware|domain
+Networking|tcp/ip, dns, http|domain
+Concurrency|multithreading, goroutines, async|domain
+Functional Programming||practice
+Accessibility|a11y, wcag|practice
+SEO||domain
+Analytics|product analytics, a/b testing, experimentation|domain

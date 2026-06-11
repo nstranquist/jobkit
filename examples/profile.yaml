@@ -1,0 +1,82 @@
+# Example master profile used by `make demo` / scripts/demo.sh.
+name: "Sam Rivera"
+headline: "Senior Software Engineer"
+email: "sam@example.com"
+location: "Austin, TX"
+links:
+  - label: GitHub
+    url: https://github.com/samrivera
+
+summary: >-
+  Backend-leaning software engineer with 7 years shipping production services
+  in Go and TypeScript. Comfortable owning systems end to end: design,
+  implementation, deployment, and on-call.
+
+skills:
+  - name: Go
+    level: expert
+    years: 6
+    aliases: [golang]
+  - name: PostgreSQL
+    level: expert
+    years: 6
+    aliases: [postgres]
+  - name: TypeScript
+    level: proficient
+    years: 5
+  - name: Kubernetes
+    level: proficient
+    years: 3
+    aliases: [k8s]
+  - name: AWS
+    level: proficient
+    years: 4
+  - name: Kafka
+    level: familiar
+    years: 2
+  - name: React
+    level: familiar
+
+experience:
+  - company: "Vandelay Industries"
+    role: "Senior Software Engineer"
+    location: "Remote"
+    start: "2022-03"
+    end: "present"
+    bullets:
+      - text: "Designed a Go payments-ledger service processing $40M/mo with exactly-once settlement semantics."
+        tags: [go, postgresql, distributed-systems]
+      - text: "Migrated 14 services to Kubernetes on EKS, cutting deploy time from 30 min to 4 min."
+        tags: [kubernetes, aws, ci/cd]
+      - text: "Built Kafka-based event pipeline replacing nightly batch ETL; data freshness went from 24h to <2 min."
+        tags: [kafka, etl]
+      - text: "Introduced integration-test harness that caught 3 production-class bugs in its first quarter."
+        tags: [testing]
+      - text: "Mentored 4 engineers; ran the team's design-review process."
+        tags: [mentoring, code review]
+  - company: "Pendant Publishing"
+    role: "Software Engineer"
+    location: "Austin, TX"
+    start: "2019-01"
+    end: "2022-02"
+    bullets:
+      - text: "Built REST and gRPC APIs in Go backing a React subscription frontend (250k MAU)."
+        tags: [go, grpc, rest, react]
+      - text: "Owned PostgreSQL schema design and query tuning; p95 search latency down 70%."
+        tags: [postgresql, performance]
+      - text: "Set up GitHub Actions CI/CD with parallelized test matrix."
+        tags: [ci/cd, github actions]
+
+projects:
+  - name: "queuelite"
+    url: https://github.com/samrivera/queuelite
+    description: "Embedded job queue for Go on SQLite — 800 stars."
+    bullets:
+      - text: "Single-file durable queue with exactly-once delivery; used in production by 30+ companies."
+        tags: [go, sqlite]
+
+education:
+  - school: "University of Texas at Austin"
+    degree: "B.S."
+    field: "Computer Science"
+    year: "2018"

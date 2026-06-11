@@ -1,0 +1,45 @@
+// Package telemetry appends one JSONL record per CLI run to
+// ~/.jobkit/telemetry.jsonl — the self-eval substrate (which verbs get used,
+// what fails). Best-effort: never blocks or fails the command.
+package telemetry
+
+import (
+	"encoding/json"
+	"os"
+	"time"
+
+	"github.com/nstranquist/jobkit/internal/home"
+)
+
+type record struct {
+	TS         time.Time `json:"ts"`
+	Cmd        string    `json:"cmd"`
+	OK         bool      `json:"ok"`
+	DurationMS int64     `json:"duration_ms"`
+	Err        string    `json:"err,omitempty"`
+}
+
+// Record logs one run. Errors are swallowed by design.
+func Record(cmd string, start time.Time, runErr error) {
+	if os.Getenv("JOBKIT_TELEMETRY") == "off" {
+		return
+	}
+	path, err := home.TelemetryPath()
+	if err != nil {
+		return
+	}
+	r := record{TS: time.Now().UTC(), Cmd: cmd, OK: runErr == nil, DurationMS: time.Since(start).Milliseconds()}
+	if runErr != nil {
+		r.Err = runErr.Error()
+	}
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write(append(raw, '\n'))
+}

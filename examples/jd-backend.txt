@@ -1,0 +1,23 @@
+Senior Backend Engineer
+Company: Initech
+
+About the role
+Initech builds payment infrastructure used by thousands of engineering teams.
+You'll own services end to end, from design through production operations.
+
+Responsibilities
+- Design, build, and operate Go microservices
+- Evolve our PostgreSQL data layer and event pipelines on Kafka
+- Partner with frontend engineers shipping TypeScript/React surfaces
+
+Requirements
+- 5+ years of backend experience, with deep Go and PostgreSQL knowledge
+- Production Kubernetes and AWS experience
+- Strong testing culture: unit tests, integration tests, CI/CD ownership
+- Experience designing REST or gRPC APIs
+- Clear written communication and code review habits
+
+Nice to have
+- Rust
+- Terraform
+- Observability tooling (Prometheus, Grafana, OpenTelemetry)
