@@ -54,7 +54,7 @@ Linux||infra
 CI/CD|ci, continuous integration, continuous delivery, continuous deployment|infra
 GitHub Actions||infra
 Jenkins||infra
-GitLab CI|gitlab|infra
+GitLab CI|gitlab ci/cd, gitlab pipelines|infra
 ArgoCD|argo cd|infra
 Prometheus||infra
 Grafana||infra

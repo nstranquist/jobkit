@@ -77,6 +77,32 @@ func TestWordBoundaries(t *testing.T) {
 	}
 }
 
+func TestNoDoubleCountOnOverlappingAliases(t *testing.T) {
+	// One "gRPC" mention must count once (canonical + alias share the span);
+	// "ruby on rails" must credit Rails once and NOT credit Ruby separately;
+	// "react native" must not also credit React.
+	j := Parse("We use gRPC, ruby on rails, and react native.")
+	got := map[string]SkillHit{}
+	for _, s := range j.Skills {
+		got[s.Name] = s
+	}
+	if g := got["gRPC"]; g.Count != 1 {
+		t.Fatalf("gRPC count = %d, want 1", g.Count)
+	}
+	if r := got["Rails"]; r.Count != 1 {
+		t.Fatalf("Rails count = %d, want 1", r.Count)
+	}
+	if _, ok := got["Ruby"]; ok {
+		t.Fatal("Ruby must not be credited from inside 'ruby on rails'")
+	}
+	if _, ok := got["React"]; ok {
+		t.Fatal("React must not be credited from inside 'react native'")
+	}
+	if rn := got["React Native"]; rn.Count != 1 {
+		t.Fatalf("React Native count = %d, want 1", rn.Count)
+	}
+}
+
 func TestKubernetesAlias(t *testing.T) {
 	j := Parse("You will run workloads on k8s.")
 	found := false

@@ -29,8 +29,15 @@ ls -la "$JOBKIT_HOME/resume.html"
 step "letter build"
 $BIN letter build $JD --tone direct | head -20
 
+step "prep (interview sheet)"
+$BIN prep $JD | head -16
+
+step "apply (golden path)"
+$BIN apply $JD --tone direct
+
 step "track lifecycle"
-$BIN track add Initech "Senior Backend Engineer" --url https://initech.example/jobs/123 --note "via referral"
+$BIN track add Globex "Platform Engineer" --url https://globex.example/jobs/7 --note "via referral"
+$BIN track set globex --status applied
 $BIN track set initech --status applied
 $BIN track list
 $BIN track stats

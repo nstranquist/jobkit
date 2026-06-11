@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -21,13 +22,14 @@ import (
 	"github.com/nstranquist/jobkit/internal/jd"
 	"github.com/nstranquist/jobkit/internal/letter"
 	"github.com/nstranquist/jobkit/internal/match"
+	"github.com/nstranquist/jobkit/internal/prep"
 	"github.com/nstranquist/jobkit/internal/profile"
 	"github.com/nstranquist/jobkit/internal/resume"
 	"github.com/nstranquist/jobkit/internal/telemetry"
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 // boolFlags take no value; everything else consumes one.
 var boolFlags = map[string]bool{"json": true, "all": true, "full": true, "help": true}
@@ -112,6 +114,10 @@ func dispatch(cmd string, c *cli) error {
 		return cmdResume(c)
 	case "letter":
 		return cmdLetter(c)
+	case "prep":
+		return cmdPrep(c)
+	case "apply":
+		return cmdApply(c)
 	case "track":
 		return cmdTrack(c)
 	case "version":
@@ -221,6 +227,14 @@ func readInput(pathOrDash string) (string, error) {
 		}
 		return string(raw), nil
 	}
+	if jd.IsURL(pathOrDash) {
+		text, err := jd.Fetch(pathOrDash)
+		if err != nil {
+			return "", envelope.Newf(envelope.CodeIOFailed, "fetch %s: %v", pathOrDash, err).
+				WithHint("JS-rendered boards may need copy/paste into a file; pipe it via `-`")
+		}
+		return text, nil
+	}
 	raw, err := os.ReadFile(pathOrDash)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -243,8 +257,22 @@ func parseJDArg(c *cli, idx int) (*jd.JD, error) {
 }
 
 func cmdJD(c *cli) error {
-	if len(c.args) < 2 || c.args[1] != "parse" {
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit jd parse <file|->")
+	sub := ""
+	if len(c.args) > 1 {
+		sub = c.args[1]
+	}
+	if sub == "fetch" {
+		if len(c.args) < 3 || !jd.IsURL(c.args[2]) {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit jd fetch <url> [--out path]")
+		}
+		text, err := readInput(c.args[2])
+		if err != nil {
+			return err
+		}
+		return writeArtifact(c, "jd", "txt", text, map[string]any{"url": c.args[2], "bytes": len(text)})
+	}
+	if sub != "parse" {
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit jd <parse|fetch> <file|url|->")
 	}
 	j, err := parseJDArg(c, 2)
 	if err != nil {
@@ -420,6 +448,128 @@ func writeArtifact(c *cli, kind, ext, content string, meta map[string]any) error
 	return nil
 }
 
+func cmdPrep(c *cli) error {
+	p, _, err := loadProfile()
+	if err != nil {
+		return err
+	}
+	j, err := parseJDArg(c, 1)
+	if err != nil {
+		return err
+	}
+	res := match.Score(p, j)
+	sheet := prep.Build(p, j, res)
+	return writeArtifact(c, "prep", "md", sheet, map[string]any{
+		"role": j.Title, "company": j.Company, "score": res.Score,
+	})
+}
+
+// cmdApply is the golden path: match + tailored resume + letter + prep, all
+// written to one per-application artifact dir, and the application tracked.
+func cmdApply(c *cli) error {
+	p, _, err := loadProfile()
+	if err != nil {
+		return err
+	}
+	if len(c.args) < 2 {
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit apply <jd-file|url|-> [--company X] [--role Y] [--tone T] [--format html|md|txt] [--status S]")
+	}
+	src := c.args[1]
+	text, err := readInput(src)
+	if err != nil {
+		return err
+	}
+	j := jd.Parse(text)
+	company := firstNonEmpty(c.str("company"), j.Company)
+	role := firstNonEmpty(c.str("role"), j.Title)
+	if company == "" || role == "" {
+		return envelope.New(envelope.CodeInvalidArgs, "could not detect company/role from the JD").
+			WithHint("pass --company and --role explicitly")
+	}
+	res := match.Score(p, j)
+
+	l, err := openLedger()
+	if err != nil {
+		return err
+	}
+	apps, err := l.Replay()
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	id := track.NewID(apps, company, role)
+
+	outRoot, err := home.OutDir()
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	dir := filepath.Join(outRoot, id)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+
+	format := firstNonEmpty(c.str("format"), "html")
+	doc := resume.Build(p, j, resume.Options{MaxBulletsPerRole: 4})
+	var resumeOut, resumeName string
+	switch format {
+	case "md", "markdown":
+		resumeName, resumeOut = "resume.md", resume.RenderMarkdown(doc)
+	case "txt", "text", "ats":
+		resumeName, resumeOut = "resume.txt", resume.RenderText(doc)
+	case "html":
+		resumeName, resumeOut = "resume.html", resume.RenderHTML(doc)
+	default:
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown format %q (md|txt|html)", format)
+	}
+	letterOut := letter.Build(p, j, res, letter.Options{
+		Company: company, Role: role, Tone: c.str("tone"), Manager: c.str("manager"),
+	})
+	prepOut := prep.Build(p, j, res)
+	matchJSON, _ := json.MarshalIndent(res, "", "  ")
+
+	files := map[string]string{
+		resumeName:   resumeOut,
+		"letter.txt": letterOut,
+		"prep.md":    prepOut,
+		"jd.txt":     text,
+		"match.json": string(matchJSON) + "\n",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+	}
+
+	status := firstNonEmpty(c.str("status"), "interested")
+	if !track.ValidStatus(status) {
+		return envelope.Newf(envelope.CodeInvalidArgs, "invalid status %q (one of: %s)", status, strings.Join(track.Statuses, ", "))
+	}
+	url := c.str("url")
+	if url == "" && jd.IsURL(src) {
+		url = src
+	}
+	ev := track.Event{
+		ID: id, Type: track.EvCreated, Company: company, Role: role, URL: url, Status: status,
+		Note: fmt.Sprintf("match %.0f/100 · artifacts: %s", res.Score, dir),
+	}
+	if err := l.Append(ev); err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+
+	if c.bool("json") {
+		envelope.EmitData(map[string]any{
+			"id": id, "score": res.Score, "dir": dir, "status": status,
+			"files": []string{resumeName, "letter.txt", "prep.md", "jd.txt", "match.json"},
+		})
+		return nil
+	}
+	fmt.Printf("application package for %s — %s\n", company, role)
+	fmt.Printf("  match score: %.0f/100\n  artifacts:   %s/\n", res.Score, dir)
+	fmt.Printf("    %s, letter.txt, prep.md, jd.txt, match.json\n", resumeName)
+	fmt.Printf("  tracked:     %s (%s)\n", id, status)
+	fmt.Printf("next: review the letter, then `jobkit track set %s --status applied`\n", id)
+	return nil
+}
+
 // ---------- track ----------
 
 func openLedger() (*track.Ledger, error) {
@@ -484,6 +634,9 @@ func cmdTrack(c *cli) error {
 					filtered = append(filtered, a)
 				}
 			}
+		}
+		if filtered == nil {
+			filtered = []*track.Application{}
 		}
 		if c.bool("json") {
 			envelope.EmitData(filtered)
@@ -621,6 +774,9 @@ func cmdTrack(c *cli) error {
 			return err
 		}
 		due := track.FollowUps(apps, days, time.Now())
+		if due == nil {
+			due = []*track.Application{}
+		}
 		if c.bool("json") {
 			envelope.EmitData(due)
 			return nil
@@ -664,15 +820,21 @@ PROFILE
   init                              create the starter profile (~/.jobkit/profile.yaml)
   profile show|validate|path        inspect the master profile
 
-JOB DESCRIPTIONS
-  jd parse <file|->                 extract skills/seniority from a JD
-  match <file|->                    score your profile against a JD + gap report
+JOB DESCRIPTIONS (every <jd> accepts a file, a URL, or - for stdin)
+  jd parse <jd>                     extract skills/seniority from a JD
+  jd fetch <url> [--out PATH]       download a posting as clean text
+  match <jd>                        score your profile against a JD + gap report
 
 ARTIFACTS
+  apply <jd> [--company X] [--role Y] [--tone T] [--format html|md|txt]
+                                    golden path: resume + letter + prep sheet +
+                                    match report into ~/.jobkit/out/<id>/ + tracked
   resume build [jd] [--format md|txt|html] [--out PATH|auto] [--max-bullets N] [--full]
                                     tailored resume (no JD or --full = complete resume)
   letter build <jd> [--company X] [--role Y] [--tone professional|warm|direct]
                 [--manager NAME] [--out PATH|auto]
+  prep <jd> [--out PATH|auto]       interview-prep sheet: deep-dives, gap defense,
+                                    STAR story bank, questions to ask
 
 TRACKER (append-only ledger: ~/.jobkit/applications.jsonl)
   track add <company> <role> [--url U] [--status S] [--note N]

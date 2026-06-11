@@ -34,10 +34,11 @@ func init() {
 			continue
 		}
 		e := LexEntry{Canonical: parts[0], Category: parts[2]}
-		e.Aliases = append(e.Aliases, strings.ToLower(parts[0]))
-		for _, a := range strings.Split(parts[1], ",") {
+		seen := map[string]bool{}
+		for _, a := range append([]string{parts[0]}, strings.Split(parts[1], ",")...) {
 			a = strings.ToLower(strings.TrimSpace(a))
-			if a != "" {
+			if a != "" && !seen[a] {
+				seen[a] = true
 				e.Aliases = append(e.Aliases, a)
 			}
 		}
@@ -47,6 +48,9 @@ func init() {
 
 // Lexicon exposes the parsed lexicon (read-only by convention).
 func Lexicon() []LexEntry { return lexicon }
+
+// maxSkillWeight caps one skill's accumulated section-weighted mentions.
+const maxSkillWeight = 6.0
 
 // SkillHit is one detected skill with its evidence weight.
 type SkillHit struct {
@@ -106,27 +110,67 @@ func Parse(raw string) *JD {
 		j.Title = firstLine
 	}
 
-	// Section-weighted skill scan.
+	// Section-weighted skill scan. Collect every alias hit as a span, then
+	// accept longest-first with overlap suppression so one mention counts
+	// once: "gRPC" isn't credited via canonical AND alias, "react native"
+	// doesn't also credit React, "ruby on rails" doesn't also credit Rails.
 	weights := sectionWeights(raw)
-	counts := map[string]*SkillHit{}
-	for _, e := range lexicon {
-		for _, alias := range e.Aliases {
+	type span struct {
+		entry      int
+		start, end int
+	}
+	var cands []span
+	for ei := range lexicon {
+		for _, alias := range lexicon[ei].Aliases {
 			for _, pos := range findAll(lower, alias) {
-				w := weightAt(weights, pos)
-				h, ok := counts[e.Canonical]
-				if !ok {
-					h = &SkillHit{Name: e.Canonical, Category: e.Category}
-					counts[e.Canonical] = h
-				}
-				h.Count++
-				h.Weight += w
-				if w >= 2.0 {
-					h.Required = true
-				}
+				cands = append(cands, span{ei, pos, pos + len(alias)})
 			}
 		}
 	}
+	sort.Slice(cands, func(a, b int) bool {
+		la, lb := cands[a].end-cands[a].start, cands[b].end-cands[b].start
+		if la != lb {
+			return la > lb
+		}
+		if cands[a].start != cands[b].start {
+			return cands[a].start < cands[b].start
+		}
+		return cands[a].entry < cands[b].entry
+	})
+	var accepted []span
+	for _, c := range cands {
+		overlaps := false
+		for _, a := range accepted {
+			if c.start < a.end && a.start < c.end {
+				overlaps = true
+				break
+			}
+		}
+		if !overlaps {
+			accepted = append(accepted, c)
+		}
+	}
+	counts := map[string]*SkillHit{}
+	for _, c := range accepted {
+		e := lexicon[c.entry]
+		w := weightAt(weights, c.start)
+		h, ok := counts[e.Canonical]
+		if !ok {
+			h = &SkillHit{Name: e.Canonical, Category: e.Category}
+			counts[e.Canonical] = h
+		}
+		h.Count++
+		h.Weight += w
+		if w >= 2.0 {
+			h.Required = true
+		}
+	}
 	for _, h := range counts {
+		// Diminishing returns: a term repeated 20× (company names, boilerplate)
+		// must not dominate the coverage denominator. Count stays raw.
+		if h.Weight > maxSkillWeight {
+			h.Weight = maxSkillWeight
+		}
 		j.Skills = append(j.Skills, *h)
 	}
 	sort.Slice(j.Skills, func(a, b int) bool {
