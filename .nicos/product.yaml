@@ -1,0 +1,33 @@
+schema_version: 1
+id: product.jobkit
+name: jobkit
+surface: products
+kind: product
+status: experimental
+persona: Job seekers (software engineers first) and the agents helping them apply.
+jtbd: Tailor a resume and cover letter to a specific posting, score the fit honestly, and track every application through the funnel — from one offline CLI.
+pricing: Free OSS CLI; sanitize demo profile before public publish.
+launch: built
+license: MIT
+tags:
+    - go
+    - cli
+    - careers
+    - agent-native
+    - offline-first
+    - oss
+checks:
+    - name: test
+      command:
+        - go
+        - test
+        - ./...
+    - name: build
+      command:
+        - go
+        - build
+        - -o
+        - /dev/null
+        - ./cmd/jobkit
+description: Multi-purpose job application & resume toolkit (Go, single binary, v0.6.0). Master YAML profile with trusted resume bootstrap → saved board groups/search profiles plus curated target packs and digest runs → hidden-market company intelligence in ~/.jobkit/companies.yaml with ATS boards, target compensation, and dated hiring signals → contacts/referrals append-only ledger in ~/.jobkit/contacts.jsonl linked to inbox items and tracker IDs → public board search over Greenhouse/Lever/Ashby company boards with partial-result warnings by default, `--strict` fail-fast mode, extracted compensation, freshness, saturation, persona scoring, `--sort opportunity|comp|freshness`, `--min-comp` filters, and outcome-calibrated active weights from ~/.jobkit/calibration.yaml via `jobkit calibrate report|apply` → deduped inbox queue with fit scores, next actions, score provenance, source provenance, last-seen/stale review, outreach drafts, and human-reviewed form-fill packets → JD parsing against an embedded 150-entry skills lexicon (longest-match span dedup, requirements-section 2x weighting, per-skill cap) → 0-100 gap score with evidence classes → human-in-loop apply plans (resume, letter, outreach, form-fill JSON, prep, match report, JD, checklist; no form auto-submit) → JD-tailored resumes (markdown / ATS text / print-ready HTML / PDF via headless Chrome) → deterministic cover letters citing real bullets → interview-prep sheets (deep-dives anchored to own bullets, gap-defense bridges, STAR bank) → append-only JSONL application tracker (board/stats/followups/reminder export). `jobkit apply <jd|url>` golden path writes the full package to ~/.jobkit/out/<id>/ and tracks it with its score; every <jd> arg accepts a live posting URL or browser-extracted JD handoff from `ndev browser job-posting --jobkit-apply`. Agent envelope {ok,data|error} with stable exit codes; per-run telemetry; JOBKIT_HOME-isolated demo.
+portfolio_manifest: portfolio/manifest.yaml
