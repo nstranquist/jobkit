@@ -1,8 +1,20 @@
 schema_version: 1
 product_id: product.jobkit
 visibility: internal
-reviewed: false
-assets: []
+reviewed: true
+assets:
+    - path: portfolio/assets/tailored-resume.png
+      kind: screenshot
+      alt: JobKit generated ATS-safe tailored resume
+      caption: A real HTML resume generated from JobKit's fictional example profile and job description.
+    - path: assets/brand/jobkit.svg
+      kind: logo
+      alt: jobkit application icon
+      provenance: authored-svg
+      copyright_owner: Nico Stranquist
+      generator: catalog-brand-svg/v2
+      concept: career-toolkit
+      score: 100
 case_study:
     enabled: false
     evidence: []
