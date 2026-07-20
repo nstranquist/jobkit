@@ -53,9 +53,10 @@ func Build(p *profile.Profile, j *jd.JD, res *match.Result, opts Options) string
 	var b strings.Builder
 	b.WriteString(greeting + "\n\n")
 
-	// Opening.
+	// Opening. Headlines are often pipe-delimited ("Senior SWE | Platform &
+	// AI"); only the first segment reads naturally mid-sentence.
 	years := maxYears(p)
-	hook := p.Headline
+	hook := strings.TrimSpace(strings.SplitN(p.Headline, "|", 2)[0])
 	if hook == "" {
 		hook = "software engineer"
 	}

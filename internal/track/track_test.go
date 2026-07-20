@@ -83,10 +83,85 @@ func TestStatsAndFollowups(t *testing.T) {
 	}
 }
 
+func TestTagsReplayMerge(t *testing.T) {
+	l := tempLedger(t)
+	t0 := time.Date(2026, 7, 16, 12, 0, 0, 0, time.UTC)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(l.Append(Event{TS: t0, ID: "acme--swe", Type: EvCreated, Company: "Acme", Role: "SWE", Status: "interested",
+		Tags: map[string]string{TagResumeVersion: "v1.7.3", TagLane: "ai-platform"}}))
+	must(l.Append(Event{TS: t0.Add(time.Hour), ID: "acme--swe", Type: EvStatus, Status: "applied",
+		Tags: map[string]string{TagSource: "referral", TagLane: "fullstack"}}))
+	apps, err := l.Replay()
+	must(err)
+	a := apps[0]
+	if a.Tags[TagResumeVersion] != "v1.7.3" {
+		t.Fatalf("resume_version = %q", a.Tags[TagResumeVersion])
+	}
+	if a.Tags[TagLane] != "fullstack" { // later event wins
+		t.Fatalf("lane = %q, want fullstack", a.Tags[TagLane])
+	}
+	if a.Tags[TagSource] != "referral" {
+		t.Fatalf("source = %q", a.Tags[TagSource])
+	}
+}
+
+func TestStatsByTag(t *testing.T) {
+	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	applied := now.Add(-2 * 24 * time.Hour)
+	apps := []*Application{
+		{ID: "a", Status: "applied", AppliedAt: applied, Tags: map[string]string{TagLane: "ai-platform"}},
+		{ID: "b", Status: "interview", AppliedAt: applied, Tags: map[string]string{TagLane: "ai-platform"}},
+		{ID: "c", Status: "applied", AppliedAt: applied, Tags: map[string]string{TagLane: "fullstack"}},
+		{ID: "d", Status: "interested", Tags: map[string]string{TagLane: "fullstack"}},
+		{ID: "e", Status: "applied", AppliedAt: applied}, // untagged
+	}
+	s := BuildStats(apps, now)
+	ai := s.ByTag[TagLane]["ai-platform"]
+	if ai == nil || ai.Applied != 2 || ai.Responded != 1 || ai.Interviews != 1 {
+		t.Fatalf("ai-platform row = %+v", ai)
+	}
+	if ai.ResponseRate != 0.5 {
+		t.Fatalf("ai-platform response rate = %v", ai.ResponseRate)
+	}
+	fs := s.ByTag[TagLane]["fullstack"]
+	if fs == nil || fs.Total != 2 || fs.Applied != 1 || fs.Responded != 0 {
+		t.Fatalf("fullstack row = %+v", fs)
+	}
+}
+
+func TestStatsByTagEmpty(t *testing.T) {
+	s := BuildStats([]*Application{{ID: "a", Status: "applied"}}, time.Now())
+	if s.ByTag != nil {
+		t.Fatalf("ByTag = %+v, want nil when nothing is tagged", s.ByTag)
+	}
+}
+
+func TestParseTagSpec(t *testing.T) {
+	got, err := ParseTagSpec("Resume-Version=v1.7.3, lane=ai-platform")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["resume_version"] != "v1.7.3" || got["lane"] != "ai-platform" {
+		t.Fatalf("got %+v", got)
+	}
+	if _, err := ParseTagSpec("novalue"); err == nil {
+		t.Fatal("expected error for missing =")
+	}
+	if _, err := ParseTagSpec("k="); err == nil {
+		t.Fatal("expected error for empty value")
+	}
+}
+
 func TestFindAmbiguous(t *testing.T) {
 	apps := []*Application{{ID: "acme--swe"}, {ID: "acme--sre"}}
-	if _, err := Find(apps, "acme"); err == nil {
-		t.Fatal("expected ambiguity error")
+	got, err := Find(apps, "acme")
+	if err == nil {
+		t.Fatalf("expected ambiguity error, got %+v", got)
 	}
 	a, err := Find(apps, "swe")
 	if err != nil || a.ID != "acme--swe" {

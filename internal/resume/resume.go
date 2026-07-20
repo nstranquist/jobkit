@@ -19,9 +19,9 @@ type Options struct {
 
 // Doc is a render-ready resume.
 type Doc struct {
-	Profile      *profile.Profile
-	SkillOrder   []profile.Skill          // skills in render order
-	Bullets      map[string][]profile.Bullet // key: company+"\x00"+role
+	Profile       *profile.Profile
+	SkillOrder    []profile.Skill             // skills in render order
+	Bullets       map[string][]profile.Bullet // key: company+"\x00"+role
 	TargetTitle   string
 	TargetCompany string
 	Tailored      bool

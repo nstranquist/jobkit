@@ -42,7 +42,7 @@ type Experience struct {
 	Company  string   `yaml:"company" json:"company"`
 	Role     string   `yaml:"role" json:"role"`
 	Location string   `yaml:"location,omitempty" json:"location,omitempty"`
-	Start    string   `yaml:"start" json:"start"` // YYYY-MM
+	Start    string   `yaml:"start" json:"start"`                 // YYYY-MM
 	End      string   `yaml:"end,omitempty" json:"end,omitempty"` // YYYY-MM or "present"
 	Bullets  []Bullet `yaml:"bullets" json:"bullets"`
 }
@@ -119,8 +119,15 @@ func (p *Profile) Validate() []string {
 
 // WriteTemplate writes the starter profile to path. Refuses to overwrite.
 func WriteTemplate(path string) error {
-	if _, err := os.Stat(path); err == nil {
+	info, err := os.Stat(path)
+	if err == nil {
+		if info != nil && info.IsDir() {
+			return fmt.Errorf("%s already exists and is a directory", path)
+		}
 		return fmt.Errorf("%s already exists", path)
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("check %s: %w", path, err)
 	}
 	return os.WriteFile(path, []byte(templateYAML), 0o644)
 }

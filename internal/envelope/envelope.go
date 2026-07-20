@@ -52,8 +52,10 @@ func ExitCode(err error) int {
 
 type success struct {
 	OK   bool `json:"ok"`
-	Data any  `json:"data"`
+	Data data `json:"data"`
 }
+
+type data any
 
 type failure struct {
 	OK    bool `json:"ok"`
@@ -61,10 +63,12 @@ type failure struct {
 }
 
 // EmitData writes a success envelope to stdout.
-func EmitData(data any) {
+func EmitData(payload data) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(success{OK: true, Data: data})
+	if err := enc.Encode(success{OK: true, Data: payload}); err != nil {
+		fmt.Fprintf(os.Stderr, "jobkit: encode success envelope: %v\n", err)
+	}
 }
 
 // EmitError writes a failure envelope to stdout (so agents always parse one
@@ -76,6 +80,8 @@ func EmitError(err error) int {
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(failure{OK: false, Error: e})
+	if err := enc.Encode(failure{OK: false, Error: e}); err != nil {
+		fmt.Fprintf(os.Stderr, "jobkit: encode error envelope: %v\n", err)
+	}
 	return ExitCode(e)
 }

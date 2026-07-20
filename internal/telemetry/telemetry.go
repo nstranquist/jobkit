@@ -40,6 +40,10 @@ func Record(cmd string, start time.Time, runErr error) {
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	_, _ = f.Write(append(raw, '\n'))
+	buf := append(raw, '\n')
+	n, writeErr := f.Write(buf)
+	closeErr := f.Close()
+	if writeErr != nil || n != len(buf) || closeErr != nil {
+		return
+	}
 }

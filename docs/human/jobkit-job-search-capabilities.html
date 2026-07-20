@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JobKit Job Search Capabilities</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #16202a;
+      --muted: #5c6977;
+      --line: #d7dee6;
+      --panel: #f7f9fb;
+      --accent: #0b6bcb;
+      --good: #16794f;
+      --warn: #9b5c00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+    }
+    code {
+      font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #eef3f8;
+      border: 1px solid #d9e3ee;
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #15324f;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px 16px;
+      min-height: 126px;
+    }
+    .panel h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 720;
+    }
+    .panel ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+    .panel li { margin: 4px 0; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      counter-reset: step;
+    }
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      min-height: 116px;
+      position: relative;
+    }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .step strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .step span {
+      color: var(--muted);
+      display: block;
+    }
+    .status {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      padding: 6px 9px;
+      border: 1px solid #badbcc;
+      border-radius: 999px;
+      color: var(--good);
+      background: #f2fbf6;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      display: table;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    th {
+      background: #f1f5f9;
+      font-size: 13px;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .risk {
+      color: var(--warn);
+      font-weight: 650;
+    }
+    @media (max-width: 820px) {
+      main { padding: 24px 16px 36px; }
+      .grid, .flow { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>JobKit job search capabilities</h1>
+      <p>Current slice: v0.6.0. JobKit now covers public-board discovery, hidden-market targeting, inbox triage, relationship routing, apply packages, tracker outcomes, and calibrated ranking from observed results.</p>
+      <div class="status">Calibration gap closed</div>
+    </header>
+
+    <section>
+      <h2>Search stack</h2>
+      <div class="grid">
+        <div class="panel">
+          <h3>Public boards</h3>
+          <ul>
+            <li>Greenhouse, Lever, and Ashby APIs</li>
+            <li>Partial-result warnings by default</li>
+            <li><code>--strict</code> fail-fast mode</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Opportunity ranking</h3>
+          <ul>
+            <li>Keyword fit, compensation, freshness</li>
+            <li>Saturation risk and persona fit</li>
+            <li><code>--sort opportunity|comp|freshness</code></li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Calibration</h3>
+          <ul>
+            <li><code>jobkit calibrate report</code></li>
+            <li><code>jobkit calibrate apply</code></li>
+            <li>Active weights in <code>~/.jobkit/calibration.yaml</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Workflow</h2>
+      <div class="flow">
+        <div class="step">
+          <strong>Discover</strong>
+          <span><code>find</code>, saved searches, target packs, and company ATS boards produce scored jobs.</span>
+        </div>
+        <div class="step">
+          <strong>Queue</strong>
+          <span><code>--inbox</code> saves deduped jobs with fit score, source, compensation, and opportunity components.</span>
+        </div>
+        <div class="step">
+          <strong>Act</strong>
+          <span><code>apply-plan</code>, outreach drafts, form-fill packets, and contacts support human-reviewed applications.</span>
+        </div>
+        <div class="step">
+          <strong>Learn</strong>
+          <span>Tracker outcomes calibrate opportunity weights so future searches rank closer to what actually converts.</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Command map</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Need</th>
+            <th>Command</th>
+            <th>State</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Repeatable searches</td>
+            <td><code>jobkit search init|run|digest</code></td>
+            <td><code>~/.jobkit/searches.yaml</code></td>
+          </tr>
+          <tr>
+            <td>Hidden-market targets</td>
+            <td><code>jobkit company add|signal|list|show</code></td>
+            <td><code>~/.jobkit/companies.yaml</code></td>
+          </tr>
+          <tr>
+            <td>Relationship routing</td>
+            <td><code>jobkit contact add|touch|referral</code></td>
+            <td><code>~/.jobkit/contacts.jsonl</code></td>
+          </tr>
+          <tr>
+            <td>Pre-application triage</td>
+            <td><code>jobkit inbox list|stale|outreach|form</code></td>
+            <td><code>~/.jobkit/inbox.jsonl</code></td>
+          </tr>
+          <tr>
+            <td>Outcome learning</td>
+            <td><code>jobkit calibrate report|apply</code></td>
+            <td><code>~/.jobkit/calibration.yaml</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Residual risk</h2>
+      <p><span class="risk">Data quality matters.</span> Calibration is now implemented, but it only gets useful after the inbox and tracker contain enough real positive and negative outcomes for the active persona.</p>
+    </section>
+  </main>
+</body>
+</html>

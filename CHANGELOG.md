@@ -1,5 +1,117 @@
 # Changelog
 
+## [0.7.1] — 2026-07-20
+
+- **Compact help for agents** — `jobkit help --compact` (and
+  `jobkit help --json --compact`) emits a token-efficient verb map (~13% of
+  full help) while full `jobkit help` remains the human reference.
+- **Letter package tests** — deterministic cover-letter tones, manager
+  greeting, required-gap honesty, and headline pipe-segment trimming.
+- **Publication tooling** — `.github/workflows/ci.yml` runs
+  `make verify-publication` plus a dedicated `make test-race` job; Makefile
+  gains `fmt`, `test-race`, `publish-ready`, and gitleaks gates;
+  `CONTRIBUTING.md` + `SECURITY.md` document local boundaries.
+- **Honesty nits** — public board User-Agent reports `jobkit/0.7.1`; README
+  documents `make publish-ready` and synthetic-fixture-only publication.
+
+## [0.7.0] — 2026-07-16
+
+- **Claims gate (fact lock for generated material)** — new `jobkit claims
+  init|check|show|path` maintains an allowlist of verified quantified claims
+  (`~/.jobkit/claims.yaml`). When the file exists, `resume build`,
+  `letter build`, `apply`, and `apply-plan` fail closed on any quantified
+  claim (percentages, `N+` figures, money, years, large numbers) not covered
+  by the allowlist, reporting each violating token with context. Contact
+  details (phones, emails, URLs) and calendar years are exempt. `claims init`
+  bootstraps entries from the profile for human curation.
+- **Funnel tags on the tracker** — `track add`/`track set` accept
+  `--resume-version`, `--lane`, `--source`, and generic `--tag k=v[,k=v]`;
+  tags merge on replay (later events win) and `track stats` now breaks down
+  applied/responded/interview conversion per tag value, so lane and resume
+  version performance is measurable from real outcomes.
+- **LinkedIn contacts import** — `contact import <connections.csv>` parses
+  the LinkedIn data-export CSV (including its "Notes:" preamble), dedupes
+  against the existing ledger by name+company and profile URL, tags rows
+  `source=linkedin-export`, and reports contacts at tracked target companies
+  as warm-referral candidates.
+- **Form-fill autofill snippet** — `inbox form <id> --format js` emits a
+  self-contained paste-in-DevTools script that fills standard Greenhouse,
+  Lever, and generic label-matched application fields from the profile
+  (React-safe value setting), highlights everything it filled, and by
+  design never touches uploads, custom questions, EEO fields, or submit.
+- **Recall-safe query matching** — `find`/saved-search queries of four or
+  more terms now require 60% term coverage instead of every term, so one
+  rare word (e.g. "backstage") can't zero a result set; queries of up to
+  three terms remain strict. Scoring still rewards full matches.
+
+## [0.6.0] — 2026-06-24
+
+- **Outcome-calibrated opportunity ranking** — `jobkit calibrate report|apply`
+  joins inbox jobs with tracker outcomes, evaluates positive-vs-negative
+  pairwise ranking accuracy, and writes active weights to
+  `~/.jobkit/calibration.yaml`.
+- **Search uses active calibration** — `find`, `search run`, and
+  `search digest` keep the default opportunity formula when no calibration
+  exists, and automatically use calibrated weights once applied.
+- **Inbox score provenance** — saved public-board jobs now retain compensation
+  and opportunity score components so later calibration can learn from the
+  exact search signals that were shown at discovery time.
+- **Calibration regression coverage** — tests cover tracker-over-inbox outcome
+  precedence, YAML round-trip, weighted scoring, and the CLI `calibrate apply`
+  path.
+
+## [0.5.0] — 2026-06-24
+
+- **Compensation-aware search** — public-board results now extract salary
+  ranges from posting text and Ashby's structured `jobs[].compensation` payload;
+  `find`/saved searches support `--min-comp` and `--sort comp`.
+- **Opportunity-ranked search** — `find`, `search run`, and `search digest`
+  now carry compensation extraction, freshness, saturation risk, persona scores,
+  `--sort opportunity|comp|freshness`, `--persona`, and `--min-comp`.
+- **Saved-search ranking profiles** — saved searches persist `sort`, `persona`,
+  and `min_comp`, so digest runs keep using the higher-signal ranking mode.
+- **Hidden-market companies** — `jobkit company add|signal|list|show|note`
+  tracks target companies, public ATS boards, target compensation, and dated
+  hiring signals in `~/.jobkit/companies.yaml`.
+- **Contacts/referrals ledger** — `jobkit contact add|list|show|touch|referral|note`
+  stores recruiter, hiring-manager, and referral relationships in append-only
+  `~/.jobkit/contacts.jsonl`, linkable to inbox items and tracker IDs.
+
+## [0.4.0] — 2026-06-24
+
+- **Saved searches** — `jobkit search init|list|show|run` manages editable
+  board groups and saved query profiles in `~/.jobkit/searches.yaml`; `find`
+  can use `@group` board refs and `--save NAME`.
+- **Target packs + digests** — searches can use curated `#target` packs,
+  `find --targets NAME`, and `search digest [name]` for markdown/JSON digest
+  runs that optionally refresh inbox state.
+- **Partial search results** — `find` and `search run` now keep successful board
+  results when another board fails, emitting warnings by default; `--strict`
+  restores fail-fast behavior.
+- **Inbox queue** — `jobkit find ... --inbox` and `jobkit inbox add|list|show|set|note`
+  create a deduped pre-application queue with fit scores and next actions.
+- **Provenance + stale detection** — inbox jobs now track source query, board,
+  fingerprint, first/last seen time, repeated sightings, and `inbox stale`.
+- **Outreach/form packets** — `inbox outreach`, `inbox form`, and `apply-plan`
+  produce human-reviewed outreach and form-fill artifacts without submission.
+- **Human-in-loop apply plans** — `jobkit apply-plan <jd|url|inbox-id>` writes
+  resume, letter, prep, JD, match report, and `plan.md` checklist without
+  submitting forms; it tracks the lead as `interested`.
+- **Profile bootstrap** — `jobkit profile bootstrap --source resume.pdf` drafts
+  a `profile.yaml` from trusted text/PDF resume sources using local extraction.
+
+## [0.3.0] — 2026-06-17
+
+- **`jobkit find <query> --boards ...`** — searches public company board APIs
+  for Greenhouse, Lever, and Ashby; accepts `provider:slug` specs or hosted
+  board URLs; supports `--remote`, `--location`, `--limit`, and `--json`.
+- **PDF export** — `resume build --format pdf --out <path|auto>` and
+  `apply --format pdf` render through the existing print-ready HTML path via
+  headless Chrome/Chromium. `JOBKIT_CHROME_BIN` pins the browser binary for
+  deterministic environments.
+- **`track remind`** — exports due follow-up reminders as text, `.ics`, or JSON
+  without mutating the append-only ledger.
+
 ## [0.2.0] — 2026-06-11
 
 - **`jobkit apply <jd>`** — golden path: tailored resume + cover letter +

@@ -1,7 +1,14 @@
 BIN := jobkit
 INSTALL_DIR := $(HOME)/.local/bin
 
-.PHONY: build test vet install demo clean
+.PHONY: help build test test-race vet fmt license-check verify verify-publication publish-ready install demo clean help-sizes
+
+help:
+	@echo "jobkit local targets:"
+	@echo "  make build | test | test-race | vet | fmt"
+	@echo "  make verify                 # test + vet + license-check"
+	@echo "  make verify-publication     # verify + gitleaks (history + tree)"
+	@echo "  make install | demo | clean"
 
 build:
 	go build -o bin/$(BIN) ./cmd/jobkit
@@ -9,8 +16,38 @@ build:
 test:
 	go test ./...
 
+test-race:
+	go test -race ./...
+
 vet:
 	go vet ./...
+
+fmt:
+	@unformatted=$$(gofmt -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "gofmt needed on:" >&2; \
+		echo "$$unformatted" >&2; \
+		exit 1; \
+	fi
+
+license-check:
+	go run ./tools/license-audit
+
+verify: fmt test vet license-check
+
+verify-publication: verify
+	gitleaks git --no-banner --redact .
+	gitleaks dir --no-banner --redact .
+
+# Local publication gate alias (no remote push). Same as verify-publication.
+publish-ready: verify-publication
+
+help-sizes: build
+	@full=$$(./bin/jobkit help | wc -c | tr -d ' '); \
+	compact=$$(./bin/jobkit help --compact | wc -c | tr -d ' '); \
+	echo "full=$$full compact=$$compact"; \
+	test "$$compact" -gt 0; \
+	test "$$compact" -lt $$((full / 3))
 
 install: build
 	mkdir -p $(INSTALL_DIR)
