@@ -1,0 +1,37 @@
+name: Example Candidate
+headline: Senior Software Engineer
+email: candidate@example.invalid
+phone: "+1 555 010 0000"
+location: Example City, EX
+links:
+  - label: Portfolio
+    url: https://example.invalid
+summary: Builds reliable local-first developer tools.
+skills:
+  - name: Go
+    level: expert
+    years: 8
+    aliases: [golang]
+experience:
+  - company: Example Company
+    role: Senior Software Engineer
+    location: Remote
+    start: 2020-01
+    end: present
+    bullets:
+      - text: Built a deterministic example system used only for contract validation.
+        tags: [go, testing]
+projects:
+  - name: Example Project
+    url: https://example.invalid/project
+    description: Synthetic project with no personal data.
+    bullets:
+      - text: Published a reproducible compatibility fixture.
+        tags: [go]
+education:
+  - school: Example University
+    degree: Bachelor of Science
+    field: Computer Science
+    year: "2016"
+certifications:
+  - Example Certification

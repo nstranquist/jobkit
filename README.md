@@ -126,7 +126,10 @@ Environment:
 
 - **The profile is the database.** Skills carry levels/years/aliases; bullets
   carry tags. Match evidence is three-tiered: declared skill > bullet tag >
-  free-text mention — and the gap report tells you when to promote one.
+  free-text mention — and the gap report tells you when to promote one. The
+  one-way, SemVer'd consumer boundary is documented in
+  [`contracts/profile/`](contracts/profile/); consumers validate the synthetic
+  fixture instead of importing JobKit's internal Go package.
 - **The ledger is history.** `applications.jsonl` and `contacts.jsonl` are
   append-only; state is a replay. Nothing is ever rewritten, so the funnel,
   follow-up, and referral trails are auditable.
