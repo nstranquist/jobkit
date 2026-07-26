@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.8.0] — 2026-07-22
+
+- **Eligibility as an independent signal** — `jobkit eligibility
+  init|show|path|check` stores an explainable hard-constraint policy in
+  `~/.jobkit/eligibility.yaml` and classifies geography, required language,
+  years, work mode, travel, role family, management, and sales as
+  `eligible|review|ineligible` without contaminating fit or opportunity scores.
+- **Fail-closed application packages** — `find` and saved searches default to
+  actionable roles when a policy exists; inbox items retain assessments and
+  reason codes; `apply`/`apply-plan` block ineligible jobs unless a human uses
+  `--override-eligibility`, which is recorded in the receipt and tracker.
+- **Resume artifact provenance** — `track add`/`track set` can ingest a
+  verified nicos-resume package manifest and persist its variant, selected
+  artifact SHA-256, source digest, and claim-set identity. Candidate/history
+  manifests, incomplete or failed gate sets, and upload files that do not match
+  the selected manifest digest are rejected; JobKit-generated packages record
+  their own artifact digest, tailoring receipt, and structured eligibility
+  override.
+- **Repeatable weekly mix** — `jobkit inbox slate` selects five
+  platform/DevEx/AI-infrastructure, three full-stack product, one technical
+  adoption/FDE, and one stretch role by default, with at most two roles per
+  employer. It reports lane shortages rather than silently changing the mix.
+- **Append-only reassessment** — `jobkit inbox recheck` applies the current
+  policy to existing saved jobs through new ledger events, preserving history.
+- **Honest interview bridges** — prep sheets now use compatible skill families
+  instead of treating every broad "domain" skill as interchangeable, and can
+  anchor technical questions/STAR stories in project bullets as well as job
+  experience.
+- **SemVer minor release** — CLI and public-board User-Agent report `0.8.0`;
+  compact/full help and publication documentation cover the new safety gates.
+
 ## [0.7.1] — 2026-07-20
 
 - **Compact help for agents** — `jobkit help --compact` (and

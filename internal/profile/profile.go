@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -129,7 +130,7 @@ func WriteTemplate(path string) error {
 	if !os.IsNotExist(err) {
 		return fmt.Errorf("check %s: %w", path, err)
 	}
-	return os.WriteFile(path, []byte(templateYAML), 0o644)
+	return privatefs.WriteFile(path, []byte(templateYAML))
 }
 
 // SkillTerms returns every searchable term the profile claims, lowercased:

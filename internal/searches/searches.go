@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/nstranquist/jobkit/internal/jobsearch"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -26,14 +27,15 @@ type Target struct {
 }
 
 type Profile struct {
-	Query      string   `yaml:"query" json:"query"`
-	Boards     []string `yaml:"boards" json:"boards"`
-	RemoteOnly bool     `yaml:"remote,omitempty" json:"remote,omitempty"`
-	Location   string   `yaml:"location,omitempty" json:"location,omitempty"`
-	Limit      int      `yaml:"limit,omitempty" json:"limit,omitempty"`
-	Sort       string   `yaml:"sort,omitempty" json:"sort,omitempty"`
-	MinComp    int      `yaml:"min_comp,omitempty" json:"min_comp,omitempty"`
-	Persona    string   `yaml:"persona,omitempty" json:"persona,omitempty"`
+	Query       string   `yaml:"query" json:"query"`
+	Boards      []string `yaml:"boards" json:"boards"`
+	RemoteOnly  bool     `yaml:"remote,omitempty" json:"remote,omitempty"`
+	Location    string   `yaml:"location,omitempty" json:"location,omitempty"`
+	Limit       int      `yaml:"limit,omitempty" json:"limit,omitempty"`
+	Sort        string   `yaml:"sort,omitempty" json:"sort,omitempty"`
+	MinComp     int      `yaml:"min_comp,omitempty" json:"min_comp,omitempty"`
+	Persona     string   `yaml:"persona,omitempty" json:"persona,omitempty"`
+	Eligibility string   `yaml:"eligibility,omitempty" json:"eligibility,omitempty"`
 }
 
 func Template() *Config {
@@ -112,7 +114,7 @@ func Save(path string, c *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return privatefs.WriteFile(path, raw)
 }
 
 func pathExists(path string) (bool, error) {

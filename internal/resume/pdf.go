@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 func RenderPDF(htmlContent, outPath string) error {
@@ -17,7 +19,7 @@ func RenderPDF(htmlContent, outPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+	if err := privatefs.EnsureDir(filepath.Dir(outPath)); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp("", "jobkit-resume-*.html")
@@ -63,7 +65,7 @@ func RenderPDF(htmlContent, outPath string) error {
 	} else if info.IsDir() || info.Size() == 0 {
 		return fmt.Errorf("pdf was not written or is empty: %s", outPath)
 	}
-	return nil
+	return os.Chmod(outPath, privatefs.FileMode)
 }
 
 func findChrome() (string, error) {

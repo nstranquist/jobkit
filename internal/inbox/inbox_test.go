@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/nstranquist/jobkit/internal/eligibility"
 )
 
 func TestLedgerReplayOrdersAndUpdatesItems(t *testing.T) {
@@ -64,5 +66,16 @@ func TestNewIDIsStableAndIncludesReadableSlug(t *testing.T) {
 	}
 	if want := "acme-corp--senior-backend-engineer-"; len(a) <= len(want) || a[:len(want)] != want {
 		t.Fatalf("id = %q, want readable prefix %q", a, want)
+	}
+}
+
+func TestNextActionWithEligibilityOverridesFitScore(t *testing.T) {
+	ineligible := &eligibility.Result{Status: eligibility.Ineligible}
+	if got := NextActionWithEligibility(99, ineligible); got != "skip-ineligible" {
+		t.Fatalf("got %q, want skip-ineligible", got)
+	}
+	review := &eligibility.Result{Status: eligibility.Review}
+	if got := NextActionWithEligibility(99, review); got != "review-eligibility" {
+		t.Fatalf("got %q, want review-eligibility", got)
 	}
 }

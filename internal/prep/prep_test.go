@@ -46,3 +46,26 @@ func TestBuildSections(t *testing.T) {
 		t.Fatalf("expected Go bridge for Rust gap:\n%s", sheet)
 	}
 }
+
+func TestNearestSkillUsesCompatibleBridgeFamilies(t *testing.T) {
+	p := &profile.Profile{Skills: []profile.Skill{{Name: "RAG", Level: "expert"}, {Name: "Go", Level: "proficient"}}}
+	if got := nearestSkill(p, "Concurrency", "domain"); got != "" {
+		t.Fatalf("Concurrency bridge = %q, want no unrelated RAG bridge", got)
+	}
+	if got := nearestSkill(p, "LLM", "domain"); got != "RAG" {
+		t.Fatalf("LLM bridge = %q, want RAG", got)
+	}
+}
+
+func TestBuildUsesProjectBulletsAsEvidence(t *testing.T) {
+	p := &profile.Profile{
+		Name:     "Test Person",
+		Skills:   []profile.Skill{{Name: "Go", Level: "expert"}},
+		Projects: []profile.Project{{Name: "Catalog", Bullets: []profile.Bullet{{Text: "Built a Go catalog engine with deterministic indexing.", Tags: []string{"go"}}}}},
+	}
+	j := jd.Parse("Senior Go Engineer\n\nRequirements\n- Go\n")
+	sheet := Build(p, j, match.Score(p, j))
+	if !strings.Contains(sheet, "Your anchor story:*") || !strings.Contains(sheet, "Built a Go catalog engine") {
+		t.Fatalf("project evidence missing:\n%s", sheet)
+	}
+}

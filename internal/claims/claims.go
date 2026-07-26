@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -189,7 +190,7 @@ func Save(path string, f *File) error {
 	header := "# jobkit claims allowlist — every quantified claim in generated\n" +
 		"# resumes/letters must trace to an entry here. Add a claim ONLY after\n" +
 		"# verifying it; this file is the fact lock for application material.\n"
-	return os.WriteFile(path, append([]byte(header), raw...), 0o644)
+	return privatefs.WriteFile(path, append([]byte(header), raw...))
 }
 
 // Bootstrap builds an initial allowlist from source texts (typically the

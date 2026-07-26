@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/jd"
 )
 
@@ -26,35 +27,38 @@ type Board struct {
 }
 
 type Job struct {
-	Provider     string        `json:"provider"`
-	Board        string        `json:"board"`
-	ID           string        `json:"id,omitempty"`
-	Title        string        `json:"title"`
-	Company      string        `json:"company,omitempty"`
-	Department   string        `json:"department,omitempty"`
-	Location     string        `json:"location,omitempty"`
-	Remote       bool          `json:"remote,omitempty"`
-	URL          string        `json:"url,omitempty"`
-	ApplyURL     string        `json:"apply_url,omitempty"`
-	Description  string        `json:"description,omitempty"`
-	PublishedAt  string        `json:"published_at,omitempty"`
-	Score        int           `json:"score,omitempty"`
-	Compensation *Compensation `json:"compensation,omitempty"`
-	Opportunity  Opportunity   `json:"opportunity,omitempty"`
+	Provider     string              `json:"provider"`
+	Board        string              `json:"board"`
+	ID           string              `json:"id,omitempty"`
+	Title        string              `json:"title"`
+	Company      string              `json:"company,omitempty"`
+	Department   string              `json:"department,omitempty"`
+	Location     string              `json:"location,omitempty"`
+	Remote       bool                `json:"remote,omitempty"`
+	URL          string              `json:"url,omitempty"`
+	ApplyURL     string              `json:"apply_url,omitempty"`
+	Description  string              `json:"description,omitempty"`
+	PublishedAt  string              `json:"published_at,omitempty"`
+	Score        int                 `json:"score,omitempty"`
+	Compensation *Compensation       `json:"compensation,omitempty"`
+	Opportunity  Opportunity         `json:"opportunity,omitempty"`
+	Eligibility  *eligibility.Result `json:"eligibility,omitempty"`
 }
 
 type Options struct {
-	Query      string
-	Boards     []Board
-	Location   string
-	RemoteOnly bool
-	Limit      int
-	Strict     bool
-	Sort       string
-	MinComp    int
-	Persona    string
-	Weights    OpportunityWeights
-	Client     *http.Client
+	Query             string
+	Boards            []Board
+	Location          string
+	RemoteOnly        bool
+	Limit             int
+	Strict            bool
+	Sort              string
+	MinComp           int
+	Persona           string
+	Weights           OpportunityWeights
+	EligibilityPolicy *eligibility.Policy
+	EligibilityFilter string
+	Client            *http.Client
 }
 
 type Compensation struct {
@@ -416,7 +420,7 @@ func getJSON(ctx context.Context, client *http.Client, endpoint string, dest any
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "jobkit/0.7.1 (+https://github.com/nstranquist/jobkit)")
+	req.Header.Set("User-Agent", "jobkit/0.8.0 (+https://github.com/nstranquist/jobkit)")
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -453,6 +457,15 @@ func filterJobs(jobs []Job, opts Options) []Job {
 			continue
 		}
 		job.Opportunity = BuildOpportunityWithWeights(job, opts.Persona, opts.Weights)
+		if opts.EligibilityPolicy != nil {
+			assessment := eligibility.Evaluate(eligibility.Posting{
+				Title: job.Title, Location: job.Location, Remote: job.Remote, Description: job.Description,
+			}, *opts.EligibilityPolicy)
+			job.Eligibility = &assessment
+			if !eligibility.Allows(opts.EligibilityFilter, assessment.Status) {
+				continue
+			}
+		}
 		out = append(out, job)
 	}
 	sortJobs(out, opts.Sort)
@@ -462,6 +475,9 @@ func filterJobs(jobs []Job, opts Options) []Job {
 func sortJobs(jobs []Job, mode string) {
 	mode = strings.ToLower(strings.TrimSpace(mode))
 	sort.SliceStable(jobs, func(i, j int) bool {
+		if jobs[i].Eligibility != nil && jobs[j].Eligibility != nil && jobs[i].Eligibility.Status != jobs[j].Eligibility.Status {
+			return eligibility.Rank(jobs[i].Eligibility.Status) < eligibility.Rank(jobs[j].Eligibility.Status)
+		}
 		switch mode {
 		case "comp", "pay", "salary":
 			if compensationCeiling(jobs[i].Compensation) != compensationCeiling(jobs[j].Compensation) {

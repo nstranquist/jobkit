@@ -9,6 +9,7 @@ import (
 
 	"github.com/nstranquist/jobkit/internal/calibration"
 	"github.com/nstranquist/jobkit/internal/company"
+	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/envelope"
 	"github.com/nstranquist/jobkit/internal/home"
 	"github.com/nstranquist/jobkit/internal/inbox"
@@ -113,6 +114,96 @@ func TestPlanSourceFileDoesNotNeedReadableInbox(t *testing.T) {
 	}
 	if company != "" || role != "" || sourceURL != "" || inboxID != "" {
 		t.Fatalf("metadata = company:%q role:%q sourceURL:%q inboxID:%q, want empty", company, role, sourceURL, inboxID)
+	}
+}
+
+func TestApplicationEligibilityFailsClosedUnlessExplicitlyOverridden(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("JOBKIT_HOME", stateDir)
+	path, err := home.EligibilityPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eligibility.Save(path, eligibility.Template([]string{"St. Louis, MO"}, 7, false)); err != nil {
+		t.Fatal(err)
+	}
+
+	posting := "Remote - United States. Own an enterprise sales quota."
+	assessment, err := enforceApplicationEligibility(parseArgs([]string{"apply", "role.txt"}), "Account Executive", "Remote - United States", true, posting)
+	if err == nil || assessment != nil {
+		t.Fatalf("assessment=%#v err=%v, want a fail-closed eligibility error", assessment, err)
+	}
+	var cliErr *envelope.Err
+	if !errors.As(err, &cliErr) || !strings.Contains(cliErr.Hint, "--override-eligibility") {
+		t.Fatalf("err=%T %v, want override guidance", err, err)
+	}
+
+	assessment, err = enforceApplicationEligibility(parseArgs([]string{"apply", "role.txt", "--override-eligibility"}), "Account Executive", "Remote - United States", true, posting)
+	if err != nil || assessment == nil || assessment.Status != eligibility.Ineligible {
+		t.Fatalf("assessment=%#v err=%v, want reviewed ineligible override", assessment, err)
+	}
+}
+
+func TestGeneratedResumeTagsCaptureArtifactAndOverride(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	path := filepath.Join(t.TempDir(), "resume.pdf")
+	if err := os.WriteFile(path, []byte("synthetic resume"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := generatedResumeTags(path, "acme--platform", &eligibility.Result{Override: "override-eligibility"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !track.ValidSHA256Digest(tags[track.TagResumeArtifactDigest]) {
+		t.Fatalf("artifact digest = %q", tags[track.TagResumeArtifactDigest])
+	}
+	if tags[track.TagResumeVariantID] != "jobkit-tailored" || tags[track.TagTailoringReceiptID] != "jobkit:acme--platform" {
+		t.Fatalf("tags = %#v", tags)
+	}
+	if tags[track.TagEligibilityOverride] != "override-eligibility" {
+		t.Fatalf("override tag = %q", tags[track.TagEligibilityOverride])
+	}
+}
+
+func TestTrackTagsFromVerifiedResumeManifest(t *testing.T) {
+	artifact := filepath.Join(t.TempDir(), "resume.pdf")
+	if err := os.WriteFile(artifact, []byte("verified PDF bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := sha256File(artifact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceDigest := "sha256:" + strings.Repeat("c", 64)
+	claimDigest := "sha256:" + strings.Repeat("b", 64)
+	path := filepath.Join(t.TempDir(), "manifest.json")
+	body := `{"schema_version":1,"variant_id":"general-v1.7.3","version":"v1.7.3","lifecycle":"current","sendability":"sendable","channel":"sendable","claim_set_version":"v1.0.0","source_digest":"` + sourceDigest + `","claim_set_digest":"` + claimDigest + `","artifacts":{"pdf":"` + digest + `","docx":"` + digest + `","ats":"` + digest + `"},"gates":{"source":"pass","claims":"pass","parity":"pass","ats":"pass","lifecycle_metadata":"pass","visual_nvr":"pass"}}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := trackTagsFromFlags(parseArgs([]string{"track", "set", "acme", "--resume-manifest", path, "--resume-artifact", "pdf", "--resume-artifact-file", artifact}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tags[track.TagResumeVersion] != "v1.7.3" || tags[track.TagResumeArtifactDigest] != digest || tags[track.TagResumeSourceDigest] != sourceDigest {
+		t.Fatalf("tags = %#v", tags)
+	}
+	if _, err := trackTagsFromFlags(parseArgs([]string{"track", "set", "acme", "--resume-manifest", path, "--resume-artifact-file", artifact, "--resume-version", "v9"})); err == nil {
+		t.Fatal("expected explicit version conflict to fail closed")
+	}
+}
+
+func TestWeeklySlateMarkdownSeparatesLaneHeadings(t *testing.T) {
+	assessment := &eligibility.Result{Status: eligibility.Eligible}
+	text := renderWeeklySlate(inbox.Slate{
+		Policy: inbox.DefaultSlatePolicy(),
+		Selections: []inbox.SlateSelection{
+			{ID: "one", Lane: inbox.LaneStretch, Company: "Acme", Title: "Staff Engineer", Eligibility: assessment},
+			{ID: "two", Lane: inbox.LanePlatform, Company: "Demo", Title: "Platform Engineer", Eligibility: assessment},
+		},
+	})
+	if !strings.Contains(text, "eligibility eligible)\n\n## platform-devex-ai-infra") {
+		t.Fatalf("lane heading must be separated from the previous list: %q", text)
 	}
 }
 

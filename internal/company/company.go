@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,7 +78,7 @@ func Save(path string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return privatefs.WriteFile(path, raw)
 }
 
 func (cfg *Config) Upsert(c Company) Company {

@@ -13,6 +13,10 @@ step() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 step "profile validate"
 $BIN profile validate
 
+step "eligibility policy + explainable check"
+$BIN eligibility init --home "Austin, TX" --countries "United States,USA,US" --languages English --years 7 --relocation-open
+$BIN eligibility check $JD --location "Remote - US" --remote
+
 step "jd parse"
 $BIN jd parse $JD | head -12
 
@@ -33,7 +37,11 @@ step "prep (interview sheet)"
 $BIN prep $JD | head -16
 
 step "apply (golden path)"
-$BIN apply $JD --tone direct
+$BIN apply $JD --tone direct --location "Remote - US" --remote
+
+step "inbox + weekly slate"
+$BIN inbox add $JD --location "Remote - US" --remote --source demo
+$BIN inbox slate
 
 step "track lifecycle"
 $BIN track add Globex "Platform Engineer" --url https://globex.example/jobs/7 --note "via referral"

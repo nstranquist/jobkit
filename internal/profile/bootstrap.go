@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/nstranquist/jobkit/internal/jd"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -81,7 +82,7 @@ func Write(path string, p *Profile, overwrite bool) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return privatefs.WriteFile(path, raw)
 }
 
 func pathExists(path string) (bool, error) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/nstranquist/jobkit/internal/inbox"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"github.com/nstranquist/jobkit/internal/track"
 	"gopkg.in/yaml.v3"
 )
@@ -109,7 +110,7 @@ func Save(path string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return privatefs.WriteFile(path, raw)
 }
 
 func BuildReport(items []*inbox.Item, apps []*track.Application, persona string, active *jobsearch.OpportunityWeights) Report {

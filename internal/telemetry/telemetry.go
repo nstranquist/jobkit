@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nstranquist/jobkit/internal/home"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 type record struct {
@@ -36,7 +37,7 @@ func Record(cmd string, start time.Time, runErr error) {
 	if err != nil {
 		return
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := privatefs.OpenAppend(path)
 	if err != nil {
 		return
 	}

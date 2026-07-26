@@ -8,6 +8,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,6 +24,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/claims"
 	"github.com/nstranquist/jobkit/internal/company"
 	"github.com/nstranquist/jobkit/internal/contacts"
+	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/envelope"
 	"github.com/nstranquist/jobkit/internal/formfill"
 	"github.com/nstranquist/jobkit/internal/home"
@@ -31,6 +34,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/letter"
 	"github.com/nstranquist/jobkit/internal/match"
 	"github.com/nstranquist/jobkit/internal/prep"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 	"github.com/nstranquist/jobkit/internal/profile"
 	"github.com/nstranquist/jobkit/internal/resume"
 	"github.com/nstranquist/jobkit/internal/searches"
@@ -38,10 +42,15 @@ import (
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
-const version = "0.7.1"
+const version = "0.8.0"
 
 // boolFlags take no value; everything else consumes one.
-var boolFlags = map[string]bool{"json": true, "all": true, "full": true, "help": true, "remote": true, "inbox": true, "force": true, "strict": true, "compact": true}
+var boolFlags = map[string]bool{
+	"json": true, "all": true, "full": true, "help": true, "remote": true,
+	"inbox": true, "force": true, "strict": true, "compact": true,
+	"relocation-open": true, "override-eligibility": true,
+	"allow-unassessed-eligibility": true, "fix-permissions": true,
+}
 
 type cli struct {
 	args  []string          // positionals
@@ -119,6 +128,10 @@ func dispatch(cmd string, c *cli) error {
 		return cmdSearch(c)
 	case "calibrate":
 		return cmdCalibrate(c)
+	case "eligibility":
+		return cmdEligibility(c)
+	case "doctor":
+		return cmdDoctor(c)
 	case "claims":
 		return cmdClaims(c)
 	case "company":
@@ -168,6 +181,40 @@ func dispatch(cmd string, c *cli) error {
 	}
 }
 
+func cmdDoctor(c *cli) error {
+	sub := "permissions"
+	if len(c.args) > 1 {
+		sub = c.args[1]
+	}
+	if sub != "permissions" {
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown doctor subcommand %q", sub).WithHint("permissions")
+	}
+	report, err := home.CheckPermissions(c.bool("fix-permissions"))
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	if c.bool("json") {
+		envelope.EmitData(report)
+		return nil
+	}
+	if len(report.Issues) == 0 {
+		fmt.Printf("permissions: secure (%s)\n", report.Root)
+		return nil
+	}
+	verb := "found"
+	if report.Fixed {
+		verb = "fixed"
+	}
+	fmt.Printf("permissions: %s %d issue(s) under %s\n", verb, len(report.Issues), report.Root)
+	for _, issue := range report.Issues {
+		fmt.Printf("  %04o -> %04o  %s  %s\n", issue.Mode, issue.Want, issue.Kind, issue.Path)
+	}
+	if !report.Fixed {
+		fmt.Println("run `jobkit doctor permissions --fix-permissions` to repair these paths explicitly")
+	}
+	return nil
+}
+
 // helpText returns the full human usage string, or a token-efficient compact
 // verb map for agents and quick orientation.
 func helpText(compact bool) string {
@@ -179,7 +226,20 @@ func helpText(compact bool) string {
 
 func cmdFind(c *cli) error {
 	if len(c.args) < 2 {
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit find <query> [--boards greenhouse:acme,lever:demo] [--targets ai-infra] [--remote] [--location X] [--limit N] [--strict]")
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit find <query> [--boards greenhouse:acme,lever:demo] [--targets ai-infra] [--remote] [--location X] [--eligibility actionable|eligible|review|ineligible|all] [--limit N] [--strict]")
+	}
+	eligibilityFilter := strings.ToLower(strings.TrimSpace(c.str("eligibility")))
+	if !eligibility.ValidFilter(eligibilityFilter) {
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown eligibility filter %q", eligibilityFilter).
+			WithHint("use actionable, eligible, review, ineligible, or all")
+	}
+	eligibilityPolicy, err := activeEligibilityPolicy()
+	if err != nil {
+		return err
+	}
+	if eligibilityFilter != "" && eligibilityPolicy == nil {
+		return envelope.New(envelope.CodeInvalidArgs, "--eligibility requires an eligibility policy").
+			WithHint("run `jobkit eligibility init --years N --home \"City, State\"`")
 	}
 	rawSpecs := searchSpecs(c.str("boards"), c.str("targets"))
 	if len(rawSpecs) == 0 {
@@ -204,25 +264,31 @@ func cmdFind(c *cli) error {
 	}
 	query := strings.Join(c.args[1:], " ")
 	result, err := jobsearch.SearchReport(context.Background(), jobsearch.Options{
-		Query:      query,
-		Boards:     boards,
-		Location:   c.str("location"),
-		RemoteOnly: c.bool("remote"),
-		Limit:      limit,
-		Strict:     c.bool("strict"),
-		Sort:       c.str("sort"),
-		MinComp:    minComp,
-		Persona:    c.str("persona"),
-		Weights:    weights,
+		Query:             query,
+		Boards:            boards,
+		Location:          c.str("location"),
+		RemoteOnly:        c.bool("remote"),
+		Limit:             limit,
+		Strict:            c.bool("strict"),
+		Sort:              c.str("sort"),
+		MinComp:           minComp,
+		Persona:           c.str("persona"),
+		Weights:           weights,
+		EligibilityPolicy: eligibilityPolicy,
+		EligibilityFilter: firstNonEmpty(eligibilityFilter, "actionable"),
 	})
 	if err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 	jobs := result.Jobs
 	if saveName := c.str("save"); saveName != "" {
+		savedEligibility := ""
+		if eligibilityPolicy != nil {
+			savedEligibility = firstNonEmpty(eligibilityFilter, "actionable")
+		}
 		if err := saveSearchProfile(saveName, searches.Profile{
 			Query: query, Boards: rawSpecs, RemoteOnly: c.bool("remote"), Location: c.str("location"), Limit: limit,
-			Sort: c.str("sort"), MinComp: minComp, Persona: c.str("persona"),
+			Sort: c.str("sort"), MinComp: minComp, Persona: c.str("persona"), Eligibility: savedEligibility,
 		}); err != nil {
 			return err
 		}
@@ -398,6 +464,114 @@ func cmdProfile(c *cli) error {
 	}
 }
 
+// ---------- eligibility ----------
+
+func cmdEligibility(c *cli) error {
+	sub := "show"
+	if len(c.args) > 1 {
+		sub = c.args[1]
+	}
+	path, err := home.EligibilityPath()
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	switch sub {
+	case "init":
+		if _, err := os.Stat(path); err == nil && !c.bool("force") {
+			return envelope.Newf(envelope.CodeInvalidArgs, "%s already exists", path).
+				WithHint("edit the policy directly or pass --force to replace it")
+		} else if err != nil && !os.IsNotExist(err) {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		years, err := c.int("years", 0)
+		if err != nil {
+			return err
+		}
+		homeLocation := strings.TrimSpace(c.str("home"))
+		if homeLocation == "" {
+			if p, _, profileErr := loadProfile(); profileErr == nil {
+				homeLocation = strings.TrimSpace(p.Location)
+			}
+		}
+		var homeLocations []string
+		if homeLocation != "" {
+			homeLocations = []string{homeLocation}
+		}
+		config := eligibility.Template(homeLocations, years, c.bool("relocation-open"))
+		if raw := c.str("countries"); raw != "" {
+			config.Candidate.AllowedCountries = splitCSV(raw)
+		}
+		if raw := c.str("languages"); raw != "" {
+			config.Candidate.Languages = splitCSV(raw)
+		}
+		if err := eligibility.Save(path, config); err != nil {
+			return envelope.New(envelope.CodeInvalidArgs, err.Error())
+		}
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"path": path, "config": config})
+		} else {
+			fmt.Printf("created eligibility policy at %s\n", path)
+			fmt.Println("hard constraints now gate find/search/inbox/apply; fit and opportunity scores remain independent")
+		}
+		return nil
+	case "path":
+		if c.bool("json") {
+			envelope.EmitData(map[string]string{"path": path})
+		} else {
+			fmt.Println(path)
+		}
+		return nil
+	case "show":
+		config, err := eligibility.Load(path)
+		if os.IsNotExist(err) {
+			return envelope.Newf(envelope.CodeNotFound, "no eligibility policy at %s", path).
+				WithHint("run `jobkit eligibility init --years N --home \"City, State\"`")
+		}
+		if err != nil {
+			return envelope.New(envelope.CodeInvalidArgs, err.Error())
+		}
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"path": path, "config": config})
+		} else {
+			policy := config.EffectivePolicy()
+			fmt.Printf("eligibility policy: %s\n", path)
+			fmt.Printf("  experience: %d years  relocation: %t  max travel: %d%%\n", config.Candidate.YearsExperience, config.Candidate.RelocationOpen, policy.MaxTravelPercent)
+			fmt.Printf("  homes: %s\n  countries: %s\n  languages: %s\n  role families: %s\n",
+				strings.Join(config.Candidate.HomeLocations, ", "), strings.Join(config.Candidate.AllowedCountries, ", "),
+				strings.Join(config.Candidate.Languages, ", "), strings.Join(policy.AllowedRoleFamilies, ", "))
+		}
+		return nil
+	case "check":
+		if len(c.args) < 3 {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit eligibility check <jd-file|url|-> [--role X] [--location X] [--remote]")
+		}
+		text, err := readInput(c.args[2])
+		if err != nil {
+			return err
+		}
+		parsed := jd.Parse(text)
+		assessment, err := assessEligibility(firstNonEmpty(c.str("role"), parsed.Title), c.str("location"), c.bool("remote"), text)
+		if err != nil {
+			return err
+		}
+		if assessment == nil {
+			return envelope.New(envelope.CodeNotFound, "no eligibility policy configured").
+				WithHint("run `jobkit eligibility init --years N --home \"City, State\"`")
+		}
+		if c.bool("json") {
+			envelope.EmitData(assessment)
+		} else {
+			fmt.Printf("%s · %s · %s\n", assessment.Status, assessment.RoleFamily, assessment.WorkMode)
+			for _, reason := range assessment.Reasons {
+				fmt.Printf("  %s: %s\n", reason.Code, reason.Summary)
+			}
+		}
+		return nil
+	default:
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown eligibility subcommand %q", sub).WithHint("init|show|path|check")
+	}
+}
+
 // ---------- saved searches ----------
 
 func searchesPath() (string, error) {
@@ -506,7 +680,7 @@ func cmdSearch(c *cli) error {
 		if c.bool("json") {
 			envelope.EmitData(p)
 		} else {
-			fmt.Printf("%s: %q\nboards: %s\nremote: %v\nlocation: %s\nlimit: %d\nsort: %s\npersona: %s\nmin comp: %d\n", c.args[2], p.Query, strings.Join(p.Boards, ", "), p.RemoteOnly, p.Location, p.Limit, orDash(p.Sort), orDash(p.Persona), p.MinComp)
+			fmt.Printf("%s: %q\nboards: %s\nremote: %v\nlocation: %s\nlimit: %d\nsort: %s\npersona: %s\nmin comp: %d\neligibility: %s\n", c.args[2], p.Query, strings.Join(p.Boards, ", "), p.RemoteOnly, p.Location, p.Limit, orDash(p.Sort), orDash(p.Persona), p.MinComp, orDash(p.Eligibility))
 		}
 		return nil
 	case "digest":
@@ -655,15 +829,55 @@ func searchOptionsForProfile(c *cli, p searches.Profile, boards []jobsearch.Boar
 	if err != nil {
 		return jobsearch.Options{}, err
 	}
+	eligibilityFilter := firstNonEmpty(c.str("eligibility"), p.Eligibility)
+	if !eligibility.ValidFilter(eligibilityFilter) {
+		return jobsearch.Options{}, envelope.Newf(envelope.CodeInvalidArgs, "unknown eligibility filter %q in saved search", eligibilityFilter)
+	}
+	eligibilityPolicy, err := activeEligibilityPolicy()
+	if err != nil {
+		return jobsearch.Options{}, err
+	}
+	if eligibilityFilter != "" && eligibilityPolicy == nil {
+		return jobsearch.Options{}, envelope.New(envelope.CodeInvalidArgs, "saved search requires an eligibility policy").
+			WithHint("run `jobkit eligibility init --years N --home \"City, State\"`")
+	}
 	return jobsearch.Options{
 		Query: p.Query, Boards: boards, Location: p.Location, RemoteOnly: p.RemoteOnly, Limit: limit,
 		Strict: c.bool("strict"), Sort: firstNonEmpty(c.str("sort"), p.Sort), MinComp: minComp,
 		Persona: firstNonEmpty(c.str("persona"), p.Persona), Weights: weights,
+		EligibilityPolicy: eligibilityPolicy, EligibilityFilter: firstNonEmpty(eligibilityFilter, "actionable"),
 	}, nil
 }
 
 func calibrationPath() (string, error) {
 	return home.CalibrationPath()
+}
+
+func activeEligibilityPolicy() (*eligibility.Policy, error) {
+	path, err := home.EligibilityPath()
+	if err != nil {
+		return nil, envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	config, err := eligibility.Load(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, envelope.New(envelope.CodeInvalidArgs, err.Error()).WithHint("fix or remove " + path)
+	}
+	policy := config.EffectivePolicy()
+	return &policy, nil
+}
+
+func assessEligibility(role, location string, remote bool, description string) (*eligibility.Result, error) {
+	policy, err := activeEligibilityPolicy()
+	if err != nil || policy == nil {
+		return nil, err
+	}
+	assessment := eligibility.Evaluate(eligibility.Posting{
+		Title: role, Location: location, Remote: remote, Description: description,
+	}, *policy)
+	return &assessment, nil
 }
 
 func activeCalibrationWeights() (jobsearch.OpportunityWeights, error) {
@@ -832,6 +1046,13 @@ func formatWeights(weights jobsearch.OpportunityWeights) string {
 
 func jobSearchDetail(job jobsearch.Job) string {
 	var parts []string
+	if job.Eligibility != nil {
+		label := string(job.Eligibility.Status) + " · " + job.Eligibility.RoleFamily
+		if len(job.Eligibility.Reasons) > 0 {
+			label += " (" + job.Eligibility.Reasons[0].Code + ")"
+		}
+		parts = append(parts, label)
+	}
 	if job.Compensation != nil {
 		parts = append(parts, "pay "+formatComp(job.Compensation))
 	}
@@ -1818,7 +2039,7 @@ func writeArtifact(c *cli, kind, ext, content string, meta map[string]any) error
 		fmt.Print(content)
 		return nil
 	}
-	if err := os.WriteFile(out, []byte(content), 0o644); err != nil {
+	if err := privatefs.WriteFile(out, []byte(content)); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 	if c.bool("json") {
@@ -1858,6 +2079,62 @@ func cmdPrep(c *cli) error {
 	})
 }
 
+func enforceApplicationEligibility(c *cli, role, location string, remote bool, description string) (*eligibility.Result, error) {
+	assessment, err := assessEligibility(role, location, remote, description)
+	if err != nil {
+		return nil, err
+	}
+	if assessment == nil {
+		if !c.bool("allow-unassessed-eligibility") {
+			return nil, envelope.New(envelope.CodeInvalidArgs, "application eligibility is unassessed because no policy is configured").
+				WithHint("run `jobkit eligibility init --years N --home \"City, State\"`, or pass --allow-unassessed-eligibility only after human review")
+		}
+		return &eligibility.Result{
+			Status: eligibility.Unassessed, Override: "allow-unassessed-eligibility",
+			Reasons: []eligibility.Reason{{Code: "policy_missing", Category: "policy", Summary: "no eligibility policy was configured; human override recorded"}},
+		}, nil
+	}
+	if assessment.Status == eligibility.Ineligible && !c.bool("override-eligibility") {
+		var reasons []string
+		for _, reason := range assessment.Reasons {
+			reasons = append(reasons, reason.Summary)
+		}
+		return nil, envelope.Newf(envelope.CodeInvalidArgs, "eligibility gate blocked this role: %s", strings.Join(reasons, "; ")).
+			WithHint("fix the posting metadata/policy, or pass --override-eligibility only after human review")
+	}
+	if assessment.Status == eligibility.Ineligible {
+		assessment.Override = "override-eligibility"
+	}
+	return assessment, nil
+}
+
+func eligibilityJSON(assessment *eligibility.Result) string {
+	if assessment == nil {
+		return ""
+	}
+	payload, _ := json.MarshalIndent(assessment, "", "  ")
+	return string(payload) + "\n"
+}
+
+func inboxPostingContext(id string) (string, bool, error) {
+	if id == "" {
+		return "", false, nil
+	}
+	ledger, err := openInboxLedger()
+	if err != nil {
+		return "", false, err
+	}
+	items, err := ledger.Replay()
+	if err != nil {
+		return "", false, envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	item, err := inbox.Find(items, id)
+	if err != nil {
+		return "", false, envelope.New(envelope.CodeNotFound, err.Error())
+	}
+	return item.Job.Location, item.Job.Remote, nil
+}
+
 // cmdApply is the golden path: match + tailored resume + letter + prep, all
 // written to one per-application artifact dir, and the application tracked.
 func cmdApply(c *cli) error {
@@ -1880,6 +2157,10 @@ func cmdApply(c *cli) error {
 		return envelope.New(envelope.CodeInvalidArgs, "could not detect company/role from the JD").
 			WithHint("pass --company and --role explicitly")
 	}
+	assessment, err := enforceApplicationEligibility(c, role, c.str("location"), c.bool("remote"), text)
+	if err != nil {
+		return err
+	}
 	res := match.Score(p, j)
 
 	l, err := openLedger()
@@ -1897,7 +2178,7 @@ func cmdApply(c *cli) error {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 	dir := filepath.Join(outRoot, id)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := privatefs.EnsureDir(dir); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 
@@ -1937,13 +2218,20 @@ func cmdApply(c *cli) error {
 		"jd.txt":     text,
 		"match.json": string(matchJSON) + "\n",
 	}
+	if assessment != nil {
+		files["eligibility.json"] = eligibilityJSON(assessment)
+	}
 	if resumeOut != "" {
 		files[resumeName] = resumeOut
 	}
 	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		if err := privatefs.WriteFile(filepath.Join(dir, name), []byte(content)); err != nil {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
 		}
+	}
+	provenanceTags, err := generatedResumeTags(filepath.Join(dir, resumeName), id, assessment)
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 
 	status := firstNonEmpty(c.str("status"), "interested")
@@ -1954,9 +2242,16 @@ func cmdApply(c *cli) error {
 	if url == "" && jd.IsURL(src) {
 		url = src
 	}
+	eligibilityNote := ""
+	if assessment != nil {
+		eligibilityNote = fmt.Sprintf(" · eligibility %s", assessment.Status)
+		if assessment.Override != "" {
+			eligibilityNote += " (human override: " + assessment.Override + ")"
+		}
+	}
 	ev := track.Event{
 		ID: id, Type: track.EvCreated, Company: company, Role: role, URL: url, Status: status,
-		Note: fmt.Sprintf("match %.0f/100 · artifacts: %s", res.Score, dir),
+		Note: fmt.Sprintf("match %.0f/100%s · artifacts: %s", res.Score, eligibilityNote, dir), Tags: provenanceTags,
 	}
 	if err := l.Append(ev); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
@@ -1965,13 +2260,16 @@ func cmdApply(c *cli) error {
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"id": id, "score": res.Score, "dir": dir, "status": status,
-			"files": []string{resumeName, "letter.txt", "prep.md", "jd.txt", "match.json"},
+			"eligibility": assessment, "files": sortedKeys(files),
 		})
 		return nil
 	}
 	fmt.Printf("application package for %s — %s\n", company, role)
 	fmt.Printf("  match score: %.0f/100\n  artifacts:   %s/\n", res.Score, dir)
-	fmt.Printf("    %s, letter.txt, prep.md, jd.txt, match.json\n", resumeName)
+	if assessment != nil {
+		fmt.Printf("  eligibility: %s\n", assessment.Status)
+	}
+	fmt.Printf("    %s\n", strings.Join(sortedKeys(files), ", "))
 	fmt.Printf("  tracked:     %s (%s)\n", id, status)
 	fmt.Printf("next: review the letter, then `jobkit track set %s --status applied`\n", id)
 	return nil
@@ -2000,6 +2298,19 @@ func cmdApplyPlan(c *cli) error {
 		return envelope.New(envelope.CodeInvalidArgs, "could not detect company/role from the JD").
 			WithHint("pass --company and --role explicitly")
 	}
+	location := c.str("location")
+	remote := c.bool("remote")
+	if inboxID != "" && location == "" && !remote {
+		inboxLocation, inboxRemote, err := inboxPostingContext(inboxID)
+		if err != nil {
+			return err
+		}
+		location, remote = inboxLocation, inboxRemote
+	}
+	assessment, err := enforceApplicationEligibility(c, role, location, remote, text)
+	if err != nil {
+		return err
+	}
 	res := match.Score(p, j)
 
 	outRoot, err := home.OutDir()
@@ -2015,7 +2326,7 @@ func cmdApplyPlan(c *cli) error {
 	if exists {
 		dir = filepath.Join(outRoot, baseID+"-"+time.Now().Format("20060102-150405"))
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := privatefs.EnsureDir(dir); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 
@@ -2065,7 +2376,7 @@ func cmdApplyPlan(c *cli) error {
 	trackID := track.NewID(apps, company, role)
 
 	files := map[string]string{
-		"plan.md":        renderPlan(company, role, sourceURL, trackID, inboxID, dir, res),
+		"plan.md":        renderPlan(company, role, sourceURL, trackID, inboxID, dir, res, assessment),
 		"letter.txt":     letterOut,
 		"outreach.txt":   outreachOut,
 		"form-fill.json": string(formJSON) + "\n",
@@ -2073,17 +2384,31 @@ func cmdApplyPlan(c *cli) error {
 		"jd.txt":         text,
 		"match.json":     string(matchJSON) + "\n",
 	}
+	if assessment != nil {
+		files["eligibility.json"] = eligibilityJSON(assessment)
+	}
 	if resumeOut != "" {
 		files[resumeName] = resumeOut
 	}
 	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		if err := privatefs.WriteFile(filepath.Join(dir, name), []byte(content)); err != nil {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+	}
+	provenanceTags, err := generatedResumeTags(filepath.Join(dir, resumeName), trackID, assessment)
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	eligibilityNote := ""
+	if assessment != nil {
+		eligibilityNote = fmt.Sprintf(" · eligibility %s", assessment.Status)
+		if assessment.Override != "" {
+			eligibilityNote += " (human override: " + assessment.Override + ")"
 		}
 	}
 	if err := l.Append(track.Event{
 		ID: trackID, Type: track.EvCreated, Company: company, Role: role, URL: sourceURL, Status: "interested",
-		Note: fmt.Sprintf("apply-plan %.0f/100 · artifacts: %s", res.Score, dir),
+		Note: fmt.Sprintf("apply-plan %.0f/100%s · artifacts: %s", res.Score, eligibilityNote, dir), Tags: provenanceTags,
 	}); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
@@ -2096,16 +2421,19 @@ func cmdApplyPlan(c *cli) error {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
 		}
 	}
-	fileNames := []string{resumeName, "letter.txt", "outreach.txt", "form-fill.json", "prep.md", "jd.txt", "match.json", "plan.md"}
+	fileNames := sortedKeys(files)
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"dir": dir, "track_id": trackID, "inbox_id": inboxID, "score": res.Score,
-			"files": fileNames,
+			"eligibility": assessment, "files": fileNames,
 		})
 		return nil
 	}
 	fmt.Printf("apply plan for %s — %s\n", company, role)
 	fmt.Printf("  match score: %.0f/100\n  artifacts:   %s/\n", res.Score, dir)
+	if assessment != nil {
+		fmt.Printf("  eligibility: %s\n", assessment.Status)
+	}
 	fmt.Printf("  tracked:     %s (interested)\n", trackID)
 	fmt.Println("next: open plan.md, review artifacts, submit manually, then mark applied")
 	return nil
@@ -2173,10 +2501,19 @@ func pathExists(path string) (bool, error) {
 	return false, err
 }
 
-func renderPlan(company, role, sourceURL, trackID, inboxID, dir string, res *match.Result) string {
+func renderPlan(company, role, sourceURL, trackID, inboxID, dir string, res *match.Result, assessment *eligibility.Result) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Apply Plan: %s - %s\n\n", company, role)
 	fmt.Fprintf(&b, "Match score: %.0f/100\n\n", res.Score)
+	if assessment != nil {
+		fmt.Fprintf(&b, "Eligibility: **%s** (%s, %s)\n\n", assessment.Status, assessment.RoleFamily, assessment.WorkMode)
+		for _, reason := range assessment.Reasons {
+			fmt.Fprintf(&b, "- Eligibility review: %s\n", reason.Summary)
+		}
+		if len(assessment.Reasons) > 0 {
+			b.WriteString("\n")
+		}
+	}
 	if sourceURL != "" {
 		fmt.Fprintf(&b, "Posting: %s\n\n", sourceURL)
 	}
@@ -2253,7 +2590,9 @@ func saveJobsToInbox(jobs []jobsearch.Job, query, source string) (inboxSaveStats
 		next := "profile-needed"
 		if p != nil {
 			score = match.Score(p, jd.Parse(job.JDText)).Score
-			next = inbox.NextAction(score)
+			next = inbox.NextActionWithEligibility(score, job.Eligibility)
+		} else if job.Eligibility != nil && job.Eligibility.Status != eligibility.Eligible {
+			next = inbox.NextActionWithEligibility(score, job.Eligibility)
 		}
 		ev := inbox.Event{
 			ID: id, Type: inbox.EvSaved, Status: "new", Source: source, Query: query,
@@ -2304,7 +2643,14 @@ func cmdInbox(c *cli) error {
 		if company == "" || role == "" {
 			return envelope.New(envelope.CodeInvalidArgs, "could not detect company/role").WithHint("pass --company and --role")
 		}
-		job := inbox.Job{Title: role, Company: company, URL: c.args[2], Description: text, JDText: text}
+		assessment, err := assessEligibility(role, c.str("location"), c.bool("remote"), text)
+		if err != nil {
+			return err
+		}
+		job := inbox.Job{
+			Title: role, Company: company, URL: c.args[2], Description: text, JDText: text,
+			Location: c.str("location"), Remote: c.bool("remote"), Eligibility: assessment,
+		}
 		if !jd.IsURL(c.args[2]) {
 			job.URL = c.str("url")
 		}
@@ -2317,16 +2663,94 @@ func cmdInbox(c *cli) error {
 		next := "profile-needed"
 		if p != nil {
 			score = match.Score(p, j).Score
-			next = inbox.NextAction(score)
+			next = inbox.NextActionWithEligibility(score, assessment)
+		} else if assessment != nil && assessment.Status != eligibility.Eligible {
+			next = inbox.NextActionWithEligibility(score, assessment)
 		}
 		if err := l.Append(inbox.Event{ID: id, Type: inbox.EvSaved, Status: "new", Source: firstNonEmpty(c.str("source"), "manual"), Job: &job, MatchScore: score, NextAction: next}); err != nil {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
 		}
 		if c.bool("json") {
-			envelope.EmitData(map[string]any{"id": id, "score": score, "next_action": next})
+			envelope.EmitData(map[string]any{"id": id, "score": score, "next_action": next, "eligibility": assessment})
 		} else {
 			fmt.Printf("saved %s (%.0f/100, %s)\n", id, score, next)
 		}
+		return nil
+	case "recheck":
+		policy, err := activeEligibilityPolicy()
+		if err != nil {
+			return err
+		}
+		if policy == nil {
+			return envelope.New(envelope.CodeNotFound, "no eligibility policy configured").
+				WithHint("run `jobkit eligibility init --years N --home \"City, State\"`")
+		}
+		counts := map[eligibility.Status]int{}
+		updated := 0
+		for _, item := range items {
+			if !c.bool("all") && inbox.TerminalStatuses[item.Status] {
+				continue
+			}
+			assessment := eligibility.Evaluate(eligibility.Posting{
+				Title: item.Job.Title, Location: item.Job.Location, Remote: item.Job.Remote,
+				Description: firstNonEmpty(item.Job.Description, item.Job.JDText),
+			}, *policy)
+			job := item.Job
+			job.Eligibility = &assessment
+			next := inbox.NextActionWithEligibility(item.MatchScore, &assessment)
+			if err := l.Append(inbox.Event{ID: item.ID, Type: inbox.EvAssessed, Job: &job, NextAction: next}); err != nil {
+				return envelope.New(envelope.CodeIOFailed, err.Error())
+			}
+			counts[assessment.Status]++
+			updated++
+		}
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"updated": updated, "counts": counts})
+		} else {
+			fmt.Printf("rechecked %d inbox job(s): %d eligible, %d review, %d ineligible\n",
+				updated, counts[eligibility.Eligible], counts[eligibility.Review], counts[eligibility.Ineligible])
+		}
+		return nil
+	case "slate":
+		policy := inbox.DefaultSlatePolicy()
+		for _, option := range []struct {
+			flag   string
+			target *int
+		}{
+			{"platform", &policy.Platform}, {"fullstack", &policy.Fullstack},
+			{"adoption", &policy.Adoption}, {"stretch", &policy.Stretch},
+			{"employer-cap", &policy.EmployerCap},
+		} {
+			flag, target := option.flag, option.target
+			if _, ok := c.flags[flag]; !ok {
+				continue
+			}
+			value, err := c.int(flag, *target)
+			if err != nil {
+				return err
+			}
+			if value < 0 {
+				return envelope.Newf(envelope.CodeInvalidArgs, "--%s must not be negative", flag)
+			}
+			*target = value
+		}
+		slate := inbox.BuildSlate(items, policy)
+		if c.bool("json") {
+			envelope.EmitData(slate)
+			return nil
+		}
+		if c.str("out") != "" {
+			out, err := artifactPath(c, "weekly-slate", "md")
+			if err != nil {
+				return err
+			}
+			if err := privatefs.WriteFile(out, []byte(renderWeeklySlate(slate))); err != nil {
+				return envelope.New(envelope.CodeIOFailed, err.Error())
+			}
+			fmt.Printf("wrote %s\n", out)
+			return nil
+		}
+		fmt.Print(renderWeeklySlate(slate))
 		return nil
 	case "list", "":
 		filtered := items
@@ -2345,6 +2769,24 @@ func cmdInbox(c *cli) error {
 				}
 			}
 		}
+		if filter := strings.ToLower(strings.TrimSpace(c.str("eligibility"))); filter != "" {
+			if !eligibility.ValidFilter(filter) {
+				return envelope.Newf(envelope.CodeInvalidArgs, "unknown eligibility filter %q", filter)
+			}
+			var byEligibility []*inbox.Item
+			for _, item := range filtered {
+				if item.Job.Eligibility == nil {
+					if filter == "all" || filter == "actionable" || filter == string(eligibility.Review) {
+						byEligibility = append(byEligibility, item)
+					}
+					continue
+				}
+				if eligibility.Allows(filter, item.Job.Eligibility.Status) {
+					byEligibility = append(byEligibility, item)
+				}
+			}
+			filtered = byEligibility
+		}
 		if filtered == nil {
 			filtered = []*inbox.Item{}
 		}
@@ -2361,7 +2803,11 @@ func cmdInbox(c *cli) error {
 			if !item.LastSeenAt.IsZero() {
 				seen = item.LastSeenAt.Format("Jan 02")
 			}
-			fmt.Printf("%-44s %-11s %3.0f  %-15s %-7s %s — %s\n", item.ID, item.Status, item.MatchScore, item.NextAction, seen, item.Job.Company, item.Job.Title)
+			eligibilityLabel := "unassessed"
+			if item.Job.Eligibility != nil {
+				eligibilityLabel = string(item.Job.Eligibility.Status)
+			}
+			fmt.Printf("%-44s %-11s %-10s %3.0f  %-18s %-7s %s — %s\n", item.ID, item.Status, eligibilityLabel, item.MatchScore, item.NextAction, seen, item.Job.Company, item.Job.Title)
 		}
 		return nil
 	case "stale":
@@ -2416,6 +2862,12 @@ func cmdInbox(c *cli) error {
 		}
 		if item.Job.Provider != "" || item.Job.Board != "" || item.Job.Fingerprint != "" {
 			fmt.Printf("  board: %s:%s  fingerprint: %s\n", orDash(item.Job.Provider), orDash(item.Job.Board), orDash(item.Job.Fingerprint))
+		}
+		if item.Job.Eligibility != nil {
+			fmt.Printf("  eligibility: %s  family: %s  mode: %s\n", item.Job.Eligibility.Status, item.Job.Eligibility.RoleFamily, item.Job.Eligibility.WorkMode)
+			for _, reason := range item.Job.Eligibility.Reasons {
+				fmt.Printf("    %s: %s\n", reason.Code, reason.Summary)
+			}
 		}
 		if u := firstNonEmpty(item.Job.ApplyURL, item.Job.URL); u != "" {
 			fmt.Printf("  url: %s\n", u)
@@ -2515,8 +2967,43 @@ func cmdInbox(c *cli) error {
 		}
 		return nil
 	default:
-		return envelope.Newf(envelope.CodeInvalidArgs, "unknown inbox subcommand %q", sub).WithHint("add|list|show|stale|set|note|outreach|form")
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown inbox subcommand %q", sub).WithHint("add|recheck|slate|list|show|stale|set|note|outreach|form")
 	}
+}
+
+func renderWeeklySlate(slate inbox.Slate) string {
+	var b strings.Builder
+	b.WriteString("# Weekly Application Slate\n\n")
+	fmt.Fprintf(&b, "Mix: %d platform/DevEx/AI infrastructure, %d full-stack product, %d technical adoption/FDE, %d stretch; max %d per employer.\n\n",
+		slate.Policy.Platform, slate.Policy.Fullstack, slate.Policy.Adoption, slate.Policy.Stretch, slate.Policy.EmployerCap)
+	if len(slate.Selections) == 0 {
+		b.WriteString("No eligible, assessed inbox jobs currently fill the slate.\n")
+	} else {
+		currentLane := ""
+		for _, selected := range slate.Selections {
+			if selected.Lane != currentLane {
+				if currentLane != "" {
+					b.WriteString("\n")
+				}
+				currentLane = selected.Lane
+				fmt.Fprintf(&b, "## %s\n\n", currentLane)
+			}
+			fmt.Fprintf(&b, "- `%s` — %s, %s (fit %.0f, opportunity %d, eligibility %s)",
+				selected.ID, selected.Company, selected.Title, selected.MatchScore, selected.Opportunity, selected.Eligibility.Status)
+			if selected.URL != "" {
+				fmt.Fprintf(&b, " — %s", selected.URL)
+			}
+			b.WriteString("\n")
+		}
+	}
+	if len(slate.Warnings) > 0 {
+		b.WriteString("\n## Gaps\n\n")
+		for _, warning := range slate.Warnings {
+			fmt.Fprintf(&b, "- %s\n", warning)
+		}
+	}
+	b.WriteString("\nHuman gate: review each posting and package; JobKit does not submit applications or send outreach.\n")
+	return b.String()
 }
 
 func itemSeenAt(item *inbox.Item) time.Time {
@@ -2643,6 +3130,49 @@ func inboxJDText(j inbox.Job) string {
 	return strings.TrimSpace(b.String()) + "\n"
 }
 
+func generatedResumeTags(path, receiptID string, assessment *eligibility.Result) (map[string]string, error) {
+	digest, err := sha256File(path)
+	if err != nil {
+		return nil, err
+	}
+	kind := strings.TrimPrefix(strings.ToLower(filepath.Ext(path)), ".")
+	if kind == "txt" {
+		kind = "ats"
+	}
+	tags := map[string]string{
+		track.TagResumeVariantID:      "jobkit-tailored",
+		track.TagResumeArtifactKind:   kind,
+		track.TagResumeArtifactDigest: digest,
+		track.TagTailoringReceiptID:   "jobkit:" + receiptID,
+	}
+	if assessment != nil && assessment.Override != "" {
+		tags[track.TagEligibilityOverride] = assessment.Override
+	}
+	claimsPath, err := home.ClaimsPath()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(claimsPath); err == nil {
+		claimDigest, err := sha256File(claimsPath)
+		if err != nil {
+			return nil, err
+		}
+		tags[track.TagClaimSetDigest] = claimDigest
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	return tags, nil
+}
+
+func sha256File(path string) (string, error) {
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(payload)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
 // ---------- track ----------
 
 func openLedger() (*track.Ledger, error) {
@@ -2653,10 +3183,22 @@ func openLedger() (*track.Ledger, error) {
 	return &track.Ledger{Path: path}, nil
 }
 
-// trackTagsFromFlags merges --resume-version/--lane/--source with a generic
-// --tag k=v[,k=v...] spec into one tag map (nil when no tag flag was given).
+// trackTagsFromFlags merges a verified nicos-resume package manifest,
+// first-class provenance flags, and generic --tag values. Conflicting values
+// fail closed instead of silently relabeling an application artifact.
 func trackTagsFromFlags(c *cli) (map[string]string, error) {
 	tags := map[string]string{}
+	put := func(key, value, source string) error {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil
+		}
+		if existing, ok := tags[key]; ok && existing != value {
+			return envelope.Newf(envelope.CodeInvalidArgs, "%s conflicts with %s=%q", source, key, existing)
+		}
+		tags[key] = value
+		return nil
+	}
 	if spec := c.str("tag"); spec != "" {
 		parsed, err := track.ParseTagSpec(spec)
 		if err != nil {
@@ -2666,14 +3208,42 @@ func trackTagsFromFlags(c *cli) (map[string]string, error) {
 			tags[k] = v
 		}
 	}
-	if v := c.str("resume-version"); v != "" {
-		tags[track.TagResumeVersion] = v
+	manifestPath := c.str("resume-manifest")
+	artifactKind := c.str("resume-artifact")
+	artifactFile := c.str("resume-artifact-file")
+	if manifestPath == "" && (artifactKind != "" || artifactFile != "") {
+		return nil, envelope.New(envelope.CodeInvalidArgs, "--resume-artifact and --resume-artifact-file require --resume-manifest")
 	}
-	if v := c.str("lane"); v != "" {
-		tags[track.TagLane] = v
+	if manifestPath != "" {
+		manifestTags, err := track.ResumeManifestTags(manifestPath, artifactKind, artifactFile)
+		if err != nil {
+			return nil, envelope.New(envelope.CodeInvalidArgs, err.Error())
+		}
+		for key, value := range manifestTags {
+			if err := put(key, value, "--resume-manifest"); err != nil {
+				return nil, err
+			}
+		}
 	}
-	if v := c.str("source"); v != "" {
-		tags[track.TagSource] = v
+	for _, item := range []struct {
+		flag string
+		tag  string
+	}{
+		{"resume-version", track.TagResumeVersion},
+		{"resume-variant-id", track.TagResumeVariantID},
+		{"resume-artifact-digest", track.TagResumeArtifactDigest},
+		{"claim-set-version", track.TagClaimSetVersion},
+		{"tailoring-receipt-id", track.TagTailoringReceiptID},
+		{"eligibility-override", track.TagEligibilityOverride},
+		{"lane", track.TagLane},
+		{"source", track.TagSource},
+	} {
+		if err := put(item.tag, c.str(item.flag), "--"+item.flag); err != nil {
+			return nil, err
+		}
+	}
+	if digest := tags[track.TagResumeArtifactDigest]; digest != "" && !track.ValidSHA256Digest(digest) {
+		return nil, envelope.Newf(envelope.CodeInvalidArgs, "--resume-artifact-digest must be sha256:<64 lowercase hex>, got %q", digest)
 	}
 	if len(tags) == 0 {
 		return nil, nil
@@ -2706,7 +3276,7 @@ func cmdTrack(c *cli) error {
 	switch sub {
 	case "add":
 		if len(c.args) < 4 {
-			return envelope.New(envelope.CodeInvalidArgs, `usage: jobkit track add <company> <role> [--url U] [--status S] [--note N] [--resume-version V] [--lane L] [--source cold|referral|inbound] [--tag k=v,...]`)
+			return envelope.New(envelope.CodeInvalidArgs, `usage: jobkit track add <company> <role> [--url U] [--status S] [--note N] [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH] [--resume-version V] [--lane L] [--source cold|referral|inbound] [--tag k=v,...]`)
 		}
 		company, role := c.args[2], c.args[3]
 		status := c.str("status")
@@ -2803,7 +3373,7 @@ func cmdTrack(c *cli) error {
 
 	case "set":
 		if len(c.args) < 3 {
-			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit track set <id> [--status S] [--note N] [--resume-version V] [--lane L] [--source S] [--tag k=v,...]")
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit track set <id> [--status S] [--note N] [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH] [--resume-version V] [--lane L] [--source S] [--tag k=v,...]")
 		}
 		a, err := track.Find(apps, c.args[2])
 		if err != nil {
@@ -2899,8 +3469,11 @@ func cmdTrack(c *cli) error {
 		}
 		if len(s.ByTag) > 0 {
 			// Canonical keys first, then any custom keys alphabetically.
-			ordered := []string{track.TagLane, track.TagResumeVersion, track.TagSource}
-			seen := map[string]bool{track.TagLane: true, track.TagResumeVersion: true, track.TagSource: true}
+			ordered := []string{track.TagLane, track.TagResumeVersion, track.TagResumeVariantID, track.TagClaimSetVersion, track.TagEligibilityOverride, track.TagSource}
+			seen := map[string]bool{}
+			for _, key := range ordered {
+				seen[key] = true
+			}
 			var rest []string
 			for k := range s.ByTag {
 				if !seen[k] {
@@ -3026,12 +3599,14 @@ USAGE
 
 CORE
   init | profile show|validate|path|bootstrap
-  find <q> --boards|--targets … [--sort opportunity] [--inbox] [--strict]
+  eligibility init|show|check|path
+  doctor permissions [--fix-permissions]
+  find <q> --boards|--targets … [--eligibility actionable] [--inbox] [--strict]
   search init|list|show|run|digest
   match <jd> | apply <jd> | apply-plan <jd|inbox-id>
   resume build [jd] | letter build <jd> | prep <jd>
   claims init|check|show|path
-  inbox add|list|show|stale|set|note|outreach|form
+  inbox add|recheck|slate|list|show|stale|set|note|outreach|form
   track add|list|show|set|note|board|stats|followups|remind
   company add|signal|list|show | contact add|list|import|…
   calibrate report|apply | jd parse|fetch | version | help
@@ -3067,6 +3642,14 @@ SAVED SEARCHES
   calibrate apply [--persona NAME] [--min-samples N] [--force]
                                     write ~/.jobkit/calibration.yaml weights used by find/search
 
+ELIGIBILITY (hard constraints, separate from fit and opportunity)
+  eligibility init [--home "City, State"] [--countries US,...]
+              [--languages English,...] [--years N] [--relocation-open] [--force]
+                                    create ~/.jobkit/eligibility.yaml
+  eligibility show|path             inspect the active constraint policy
+  eligibility check <jd> [--role X] [--location X] [--remote]
+                                    classify eligible|review|ineligible with reasons
+
 HIDDEN MARKET
   company add <name> [--domain D] [--stage S] [--tags a,b]
               [--boards provider:slug] [--target-comp N]
@@ -3099,7 +3682,8 @@ JOB DESCRIPTIONS (every <jd> accepts a file, a URL, or - for stdin)
   find <query> --boards greenhouse:acme,lever:demo,ashby:Org
                 [--targets ai-infra] [--remote] [--location X] [--limit N]
                 [--sort opportunity|comp|freshness] [--persona agent-infra]
-                [--min-comp N] [--save NAME] [--inbox] [--strict]
+                [--min-comp N] [--eligibility actionable|eligible|review|ineligible|all]
+                [--save NAME] [--inbox] [--strict]
                                     search public company board APIs; board specs
                                     may include @groups or #target-packs.
                                     Board fetch failures become warnings unless
@@ -3109,8 +3693,13 @@ JOB DESCRIPTIONS (every <jd> accepts a file, a URL, or - for stdin)
 
 ARTIFACTS
   apply-plan <jd|url|inbox-id> [--company X] [--role Y] [--tone T]
-                                    human-in-loop package + checklist; no submit
+              [--location X] [--remote] [--override-eligibility]
+              [--allow-unassessed-eligibility]
+                                    human-in-loop package + checklist; no submit;
+                                    ineligible roles fail closed unless reviewed
   apply <jd> [--company X] [--role Y] [--tone T] [--format html|md|txt|pdf]
+              [--location X] [--remote] [--override-eligibility]
+              [--allow-unassessed-eligibility]
                                     golden path: resume + letter + prep sheet +
                                     match report into ~/.jobkit/out/<id>/ + tracked
   resume build [jd] [--format md|txt|html|pdf] [--out PATH|auto] [--max-bullets N] [--full]
@@ -3131,8 +3720,13 @@ CLAIMS GATE (fact lock for generated material: ~/.jobkit/claims.yaml)
                                     claim not in the allowlist
 
 INBOX (deduped pre-application queue: ~/.jobkit/inbox.jsonl)
-  inbox add <jd|url|-> [--company X] [--role Y] [--source X]
-  inbox list [--status S] [--all]   saved jobs, fit scores, next actions
+  inbox add <jd|url|-> [--company X] [--role Y] [--location X] [--remote] [--source X]
+  inbox recheck [--all]             reassess stored jobs against the current policy
+  inbox slate [--platform 5] [--fullstack 3] [--adoption 1] [--stretch 1]
+              [--employer-cap 2] [--out PATH|auto]
+                                    deterministic weekly mix; assessed actionable jobs only
+  inbox list [--status S] [--eligibility FILTER] [--all]
+                                    saved jobs, constraint status, fit, next actions
   inbox stale [--days N]            active saved jobs not seen recently
   inbox show <id>
   inbox set <id> --status S         move through new/shortlisted/planned/applied
@@ -3146,10 +3740,15 @@ INBOX (deduped pre-application queue: ~/.jobkit/inbox.jsonl)
 TRACKER (append-only ledger: ~/.jobkit/applications.jsonl)
   track add <company> <role> [--url U] [--status S] [--note N]
               [--resume-version V] [--lane L] [--source cold|referral|inbound]
+              [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH]
+              [--resume-variant-id ID] [--resume-artifact-digest sha256:HEX]
+              [--claim-set-version V] [--tailoring-receipt-id ID]
+              [--eligibility-override REASON]
               [--tag k=v,...]       tag applications for funnel analysis
   track list [--status S] [--all]   active applications (--all includes closed)
   track show <id>                   full event history (id prefixes ok)
   track set <id> [--status S] [--tag k=v,...] [--resume-version V] [--lane L] [--source S]
+              [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH]
                                     move through the funnel and/or retag
   track note <id> <text>            append a note
   track board                       kanban-style view by status

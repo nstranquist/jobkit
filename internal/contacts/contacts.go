@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 var Statuses = []string{
@@ -75,7 +77,7 @@ func (l *Ledger) Append(e Event) error {
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
 	}
-	f, err := os.OpenFile(l.Path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := privatefs.OpenAppend(l.Path)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 var Statuses = []string{"new", "shortlisted", "planned", "applied", "skipped", "archived"}
@@ -31,10 +33,11 @@ func ValidStatus(s string) bool {
 }
 
 const (
-	EvSaved  = "saved"
-	EvSeen   = "seen"
-	EvStatus = "status_changed"
-	EvNote   = "note"
+	EvSaved    = "saved"
+	EvSeen     = "seen"
+	EvAssessed = "eligibility_assessed"
+	EvStatus   = "status_changed"
+	EvNote     = "note"
 )
 
 type Event struct {
@@ -65,6 +68,7 @@ type Job struct {
 	PublishedAt  string                  `json:"published_at,omitempty"`
 	Compensation *jobsearch.Compensation `json:"compensation,omitempty"`
 	Opportunity  jobsearch.Opportunity   `json:"opportunity,omitempty"`
+	Eligibility  *eligibility.Result     `json:"eligibility,omitempty"`
 	JDText       string                  `json:"jd_text,omitempty"`
 	Fingerprint  string                  `json:"fingerprint,omitempty"`
 	SourceURL    string                  `json:"source_url,omitempty"`
@@ -93,6 +97,7 @@ func FromSearchJob(job jobsearch.Job) Job {
 		Title: job.Title, Company: job.Company, Department: job.Department,
 		Location: job.Location, Remote: job.Remote, URL: job.URL, ApplyURL: job.ApplyURL,
 		Description: job.Description, PublishedAt: job.PublishedAt, Compensation: job.Compensation, Opportunity: job.Opportunity,
+		Eligibility: job.Eligibility,
 		JDText:      jdText(job.Title, job.Company, job.Description),
 		Fingerprint: fingerprint(job), SourceURL: firstNonEmpty(job.ApplyURL, job.URL),
 	}
@@ -115,11 +120,26 @@ func NextAction(score float64) string {
 	}
 }
 
+// NextActionWithEligibility keeps hard constraints independent from the fit
+// score. An ineligible role is never promoted merely because its keywords
+// match, while an ambiguous role remains visible for a human decision.
+func NextActionWithEligibility(score float64, assessment *eligibility.Result) string {
+	if assessment != nil {
+		switch assessment.Status {
+		case eligibility.Ineligible:
+			return "skip-ineligible"
+		case eligibility.Review:
+			return "review-eligibility"
+		}
+	}
+	return NextAction(score)
+}
+
 func (l *Ledger) Append(e Event) error {
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
 	}
-	f, err := os.OpenFile(l.Path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := privatefs.OpenAppend(l.Path)
 	if err != nil {
 		return err
 	}

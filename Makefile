@@ -8,6 +8,7 @@ help:
 	@echo "  make build | test | test-race | vet | fmt"
 	@echo "  make verify                 # test + vet + license-check"
 	@echo "  make verify-publication     # verify + gitleaks (history + tree)"
+	@echo "  make publish-ready          # publication + race + optional ClaimGuard bridge"
 	@echo "  make claimguard-bridge      # optional external claimguard dogfood"
 	@echo "  make install | demo | clean"
 
@@ -41,7 +42,7 @@ verify-publication: verify
 	gitleaks dir --no-banner --redact .
 
 # Local publication gate (no remote push). claimguard-bridge is optional skip-if-missing.
-publish-ready: verify-publication claimguard-bridge
+publish-ready: test-race verify-publication claimguard-bridge
 
 .PHONY: claimguard-bridge
 claimguard-bridge:

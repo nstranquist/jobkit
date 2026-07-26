@@ -6,7 +6,7 @@ kind: product
 status: experimental
 persona: Job seekers (software engineers first) and the agents helping them apply.
 jtbd: Tailor a resume and cover letter to a specific posting, score the fit honestly, and track every application through the funnel — from one offline CLI.
-pricing: Free OSS CLI; sanitize demo profile before public publish.
+pricing: Free and open source under MIT.
 launch: built
 license: MIT
 tags:

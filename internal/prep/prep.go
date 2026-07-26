@@ -110,7 +110,7 @@ func Build(p *profile.Profile, j *jd.JD, res *match.Result) string {
 		b.WriteString("## Gap defense\n\n")
 		b.WriteString("Required skills you don't (yet) show. Don't bluff — bridge from the nearest thing you do have, then show ramp speed.\n\n")
 		for _, g := range gaps {
-			bridge := nearestSkill(p, g.Category)
+			bridge := nearestSkill(p, g.Name, g.Category)
 			if bridge != "" {
 				fmt.Fprintf(&b, "- **%s** — expect \"what's your experience with %s?\" Bridge: your %s depth covers the same fundamentals; name the overlap, then a concrete plan to close the rest.\n", g.Name, g.Name, bridge)
 			} else {
@@ -188,22 +188,78 @@ func bestBulletFor(p *profile.Profile, canonical string) string {
 			}
 		}
 	}
+	for _, project := range p.Projects {
+		for _, bl := range project.Bullets {
+			for _, tag := range bl.Tags {
+				for _, alias := range aliases {
+					if strings.EqualFold(tag, alias) {
+						return bl.Text
+					}
+				}
+			}
+			lower := strings.ToLower(bl.Text)
+			for _, alias := range aliases {
+				if textHit == "" && strings.Contains(lower, alias) {
+					textHit = bl.Text
+				}
+			}
+		}
+	}
 	return textHit
 }
 
-// nearestSkill picks the candidate's strongest declared skill in the same
-// lexicon category, as bridge material for a gap.
-func nearestSkill(p *profile.Profile, category string) string {
-	byName := map[string]string{}
+// nearestSkill picks the candidate's strongest declared skill in a compatible
+// bridge family. Broad lexicon categories alone are not enough: RAG and
+// Concurrency are both "domain" skills, but one is not honest bridge material
+// for the other.
+func nearestSkill(p *profile.Profile, missingName, category string) string {
+	byName := map[string]struct {
+		canonical string
+		category  string
+	}{}
 	for _, e := range jd.Lexicon() {
-		byName[strings.ToLower(e.Canonical)] = e.Category
+		entry := struct {
+			canonical string
+			category  string
+		}{e.Canonical, e.Category}
+		byName[strings.ToLower(e.Canonical)] = entry
 		for _, a := range e.Aliases {
-			byName[a] = e.Category
+			byName[a] = entry
 		}
 	}
+	wantFamily := bridgeFamily(missingName, category)
+	if wantFamily == "" {
+		return ""
+	}
 	for _, s := range p.TopSkills(len(p.Skills)) {
-		if byName[strings.ToLower(s.Name)] == category {
+		entry, ok := byName[strings.ToLower(s.Name)]
+		if ok && bridgeFamily(entry.canonical, entry.category) == wantFamily {
 			return s.Name
+		}
+	}
+	return ""
+}
+
+func bridgeFamily(canonical, category string) string {
+	canonical = strings.ToLower(strings.TrimSpace(canonical))
+	if category != "domain" && category != "practice" {
+		return category
+	}
+	groups := map[string][]string{
+		"ai":                    {"machine learning", "deep learning", "llm", "generative ai", "rag", "prompt engineering", "nlp", "computer vision", "mlops", "ai agents", "mcp", "embeddings", "fine-tuning"},
+		"platform-architecture": {"distributed systems", "backend", "devops", "sre", "platform engineering", "networking", "concurrency", "embedded"},
+		"product-client":        {"frontend", "full stack", "ios", "android", "mobile", "accessibility"},
+		"security":              {"security", "authentication", "cryptography"},
+		"quality":               {"testing", "tdd", "e2e testing", "code review", "debugging", "refactoring"},
+		"architecture":          {"system design", "api design", "performance", "scalability", "functional programming"},
+		"operations":            {"observability", "incident response"},
+		"collaboration":         {"agile", "documentation", "mentoring", "technical leadership", "cross-functional collaboration"},
+	}
+	for family, names := range groups {
+		for _, name := range names {
+			if canonical == name {
+				return family
+			}
 		}
 	}
 	return ""
@@ -238,6 +294,23 @@ func topBullets(p *profile.Profile, j *jd.JD, n int) []string {
 			for term, w := range rel {
 				if strings.Contains(lower, term) {
 					s += w * 0.5
+				}
+			}
+			if s > 0 {
+				all = append(all, scored{bl.Text, s})
+			}
+		}
+	}
+	for _, project := range p.Projects {
+		for _, bl := range project.Bullets {
+			s := 0.0
+			for _, tag := range bl.Tags {
+				s += rel[strings.ToLower(tag)]
+			}
+			lower := strings.ToLower(bl.Text)
+			for term, weight := range rel {
+				if strings.Contains(lower, term) {
+					s += weight * 0.5
 				}
 			}
 			if s > 0 {

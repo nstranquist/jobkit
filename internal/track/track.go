@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 // Status values, in funnel order. Terminal: rejected, withdrawn, ghosted.
@@ -58,12 +60,20 @@ type Event struct {
 	Tags    map[string]string `json:"tags,omitempty"`
 }
 
-// Canonical tag keys for funnel analysis. Any key is allowed; these three
-// get first-class breakdowns in stats.
+// Canonical tag keys for funnel analysis and application-material provenance.
+// Any key is allowed; these names keep cross-tool receipts queryable.
 const (
-	TagResumeVersion = "resume_version"
-	TagLane          = "lane"
-	TagSource        = "source"
+	TagResumeVersion        = "resume_version"
+	TagResumeVariantID      = "resume_variant_id"
+	TagResumeArtifactKind   = "resume_artifact_kind"
+	TagResumeArtifactDigest = "resume_artifact_digest"
+	TagResumeSourceDigest   = "resume_source_digest"
+	TagClaimSetVersion      = "claim_set_version"
+	TagClaimSetDigest       = "claim_set_digest"
+	TagTailoringReceiptID   = "tailoring_receipt_id"
+	TagEligibilityOverride  = "eligibility_override"
+	TagLane                 = "lane"
+	TagSource               = "source"
 )
 
 // Application is replayed state for one tracked job.
@@ -88,7 +98,7 @@ func (l *Ledger) Append(e Event) error {
 	if e.TS.IsZero() {
 		e.TS = time.Now().UTC()
 	}
-	f, err := os.OpenFile(l.Path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := privatefs.OpenAppend(l.Path)
 	if err != nil {
 		return err
 	}
@@ -292,6 +302,9 @@ func BuildStats(apps []*Application, now time.Time) *Stats {
 			}
 		}
 		for k, v := range a.Tags {
+			if !AggregateTag(k) {
+				continue
+			}
 			byVal := s.ByTag[k]
 			if byVal == nil {
 				byVal = map[string]*TagStats{}
@@ -328,6 +341,18 @@ func BuildStats(apps []*Application, now time.Time) *Stats {
 		s.ByTag = nil
 	}
 	return s
+}
+
+// AggregateTag reports whether a tag is useful as a funnel cohort. Receipt
+// IDs and content digests remain visible on the application but would create
+// one-row cohorts and bury the actionable lane/version signal in stats.
+func AggregateTag(key string) bool {
+	switch key {
+	case TagResumeArtifactDigest, TagResumeSourceDigest, TagClaimSetDigest, TagTailoringReceiptID:
+		return false
+	default:
+		return true
+	}
 }
 
 // ParseTagSpec parses "k=v" or "k1=v1,k2=v2" into a tag map. Keys are

@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 // Dir returns the jobkit state directory, creating it if needed.
@@ -18,7 +21,7 @@ func Dir() (string, error) {
 		}
 		dir = filepath.Join(base, ".jobkit")
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := privatefs.EnsureDir(dir); err != nil {
 		return "", fmt.Errorf("create state dir %s: %w", dir, err)
 	}
 	return dir, nil
@@ -50,6 +53,10 @@ func CalibrationPath() (string, error) { return join("calibration.yaml") }
 // ClaimsPath is the fact-lock allowlist for generated application material.
 func ClaimsPath() (string, error) { return join("claims.yaml") }
 
+// EligibilityPath is the hard-constraint policy kept separate from fit and
+// opportunity scoring.
+func EligibilityPath() (string, error) { return join("eligibility.yaml") }
+
 // LedgerPath is the append-only application-event ledger.
 func LedgerPath() (string, error) { return join("applications.jsonl") }
 
@@ -65,8 +72,65 @@ func OutDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(p, 0o755); err != nil {
+	if err := privatefs.EnsureDir(p); err != nil {
 		return "", err
 	}
 	return p, nil
+}
+
+type PermissionIssue struct {
+	Path string `json:"path"`
+	Kind string `json:"kind"`
+	Mode uint32 `json:"mode"`
+	Want uint32 `json:"want"`
+}
+
+type PermissionReport struct {
+	Root   string            `json:"root"`
+	OK     bool              `json:"ok"`
+	Fixed  bool              `json:"fixed"`
+	Issues []PermissionIssue `json:"issues,omitempty"`
+}
+
+// CheckPermissions audits all existing JobKit state without changing it unless
+// fix is explicitly requested. Symlinks fail closed and are never followed.
+func CheckPermissions(fix bool) (PermissionReport, error) {
+	root, err := Dir()
+	if err != nil {
+		return PermissionReport{}, err
+	}
+	report := PermissionReport{Root: root, Fixed: fix}
+	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing symlink in JobKit state: %s", path)
+		}
+		kind := "file"
+		want := os.FileMode(privatefs.FileMode)
+		if entry.IsDir() {
+			kind = "directory"
+			want = privatefs.DirMode
+		}
+		if info.Mode().Perm() != want {
+			report.Issues = append(report.Issues, PermissionIssue{Path: path, Kind: kind, Mode: uint32(info.Mode().Perm()), Want: uint32(want)})
+			if fix {
+				if err := os.Chmod(path, want); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return PermissionReport{}, err
+	}
+	sort.Slice(report.Issues, func(i, j int) bool { return report.Issues[i].Path < report.Issues[j].Path })
+	report.OK = len(report.Issues) == 0 || fix
+	return report, nil
 }

@@ -22,17 +22,18 @@ declared in `portfolio/manifest.yaml`.
 | Saved searches | `jobkit search init\|list\|show\|run\|digest`, `jobkit find ... --save NAME` | Editable `~/.jobkit/searches.yaml` with board groups, curated `#target` packs, repeatable search profiles, and digest runs |
 | Hidden market | `jobkit company add\|signal\|list\|show`, `jobkit contact add\|touch\|referral\|import` | Target-company intelligence, fresh hiring signals, recruiter/contact CRM, referral state, and LinkedIn connections-export bulk import with target-company overlap detection |
 | JD intelligence | `jobkit jd parse <jd>`, `jobkit jd fetch <url>` | Skills detected against a 150-entry tech lexicon (longest-match, no double counting), weighted by section (requirements 2×, nice-to-have 0.75×, per-skill cap), seniority estimate. Every `<jd>` argument accepts a file, a live posting URL, or `-` for stdin |
-| Job search | `jobkit find <query> --targets ai-infra [--sort opportunity] [--inbox]` | Queries public company job-board APIs (Greenhouse, Lever, Ashby), normalizes title/location/apply URLs, filters by query/location/remote/limit/min-comp, scores compensation/freshness/saturation/persona fit, warns on skipped boards by default, and can queue deduped results |
+| Eligibility gate | `jobkit eligibility init\|check\|show\|path` | Keeps hard constraints (geography, language, years, role family, work mode, travel, management/sales) separate from skill fit and opportunity; classifies each role `eligible`, `review`, or `ineligible` with reasons |
+| Job search | `jobkit find <query> --targets ai-infra [--eligibility actionable] [--inbox]` | Queries public Greenhouse/Lever/Ashby boards, normalizes postings, applies the eligibility policy before ranking, scores compensation/freshness/saturation/persona fit, warns on skipped boards by default, and can queue deduped results |
 | Ranking calibration | `jobkit calibrate report\|apply [--persona NAME]` | Learns opportunity-score weights from inbox/tracker outcomes, writes `~/.jobkit/calibration.yaml`, and automatically feeds calibrated weights back into `find`, `search run`, and `search digest` |
-| Inbox queue | `jobkit inbox add\|list\|show\|stale\|set\|note\|outreach\|form` | Pre-application queue with dedupe IDs, fit scores, source provenance, last-seen state, outreach drafts, form-fill packets (`--format js` emits a paste-in-DevTools autofill snippet that never submits), statuses, and next actions |
+| Inbox queue | `jobkit inbox add\|recheck\|slate\|list\|show\|stale\|set\|note\|outreach\|form` | Append-only pre-application queue with dedupe IDs, eligibility, fit, source/last-seen provenance, outreach drafts, and form-fill packets; `slate` enforces a deterministic weekly lane mix and employer cap |
 | Claims gate | `jobkit claims init\|check\|show\|path` | Fact lock for generated material: an allowlist of verified quantified claims (`~/.jobkit/claims.yaml`); when present, resume/letter/apply generation fails closed on any number it can't trace to a verified claim |
 | Gap scoring | `jobkit match <jd>` | 0–100 weighted coverage score, matched skills with evidence class (declared/tagged/text), missing skills, tailoring advice |
-| Human-in-loop plan | `jobkit apply-plan <jd\|url\|inbox-id>` | Reviewable package with resume, letter, prep sheet, match report, raw JD, and `plan.md` checklist; no form auto-submit |
-| Golden path | `jobkit apply <jd>` | One shot: tailored resume + cover letter + interview-prep sheet + match report + raw JD into `~/.jobkit/out/<id>/`, application tracked with its score |
+| Human-in-loop plan | `jobkit apply-plan <jd\|url\|inbox-id>` | Reviewable package with resume, letter, prep, match and eligibility receipts, raw JD, and checklist; ineligible roles fail closed unless a human records an explicit override; no submit |
+| Golden path | `jobkit apply <jd>` | One shot: tailored resume + letter + prep + match/eligibility receipts + raw JD into `~/.jobkit/out/<id>/`, tracked with fit and eligibility provenance |
 | Tailored resumes | `jobkit resume build <jd> [--format md\|txt\|html\|pdf]` | Skills reordered and bullets ranked by JD relevance (capped at 4/role); renders Markdown, ATS-safe plain text, print-ready single-file HTML, or PDF via headless Chrome |
 | Cover letters | `jobkit letter build <jd> [--tone professional\|warm\|direct]` | Deterministic draft that weaves your top matched skills with their best supporting bullet — honest about the top required gap |
 | Interview prep | `jobkit prep <jd>` | Per-skill deep-dive questions anchored to your own stories, gap-defense bridges, a STAR story bank, questions to ask them |
-| Application tracker | `jobkit track add\|list\|show\|set\|note\|board\|stats\|followups\|remind` | Append-only JSONL event ledger; funnel board, response-rate stats with per-tag conversion breakdowns (`--resume-version`, `--lane`, `--source`, `--tag k=v`), follow-up nudges, text/ICS reminder export |
+| Application tracker | `jobkit track add\|list\|show\|set\|note\|board\|stats\|followups\|remind` | Append-only JSONL event ledger; funnel board, response-rate stats, verified nicos-resume manifest import, artifact/claim provenance, follow-up nudges, and text/ICS reminder export |
 
 ## Quick start
 
@@ -42,12 +43,18 @@ jobkit profile bootstrap --source ~/Downloads/resume.pdf --out auto
 # or: jobkit init     # create ~/.jobkit/profile.yaml, then edit it
 jobkit profile validate
 
+# Hard constraints stay separate from fit/opportunity ranking:
+jobkit eligibility init --home "St. Louis, MO" --countries "United States,USA,US" --languages English --years 7 --relocation-open
+jobkit eligibility check posting.txt --location "Remote - US" --remote
+
 # Saved searches + inbox:
 jobkit search init
-jobkit find backend go --targets ai-infra --remote --sort opportunity --persona agent-infra --min-comp 250000 --save backend-go --inbox
+jobkit find backend go --targets ai-infra --remote --sort opportunity --persona agent-infra --min-comp 250000 --eligibility actionable --save backend-go --inbox
 jobkit search run backend-go --inbox
 jobkit search digest --inbox --out auto
+jobkit inbox recheck
 jobkit inbox list
+jobkit inbox slate --out auto  # 5 platform, 3 full-stack, 1 adoption/FDE, 1 stretch; max 2/company
 jobkit inbox stale --days 14
 jobkit calibrate report --persona agent-infra
 jobkit calibrate apply --persona agent-infra --min-samples 8
@@ -66,7 +73,11 @@ jobkit apply https://job-boards.greenhouse.io/acme/jobs/123 --tone warm
 #   → tracked with its match score
 
 jobkit prep posting.txt                 # interview-prep sheet
-jobkit track set acme --status applied
+jobkit track set acme --status applied \
+  --resume-manifest ~/dev/nicos-resume/formats-workspace/exports/sendable/manifest-general_v1_7_3.json \
+  --resume-artifact pdf \
+  --resume-artifact-file ~/dev/nicos-resume/formats-workspace/exports/sendable/Nicholas_Stranquist_Resume_v1.8.0.pdf \
+  --lane platform --source cold
 jobkit track followups --days 7
 jobkit track remind --format ics --out auto
 ```
@@ -74,18 +85,30 @@ jobkit track remind --format ics --out auto
 `make demo` runs the full walkthrough against `examples/` in an isolated
 temp state dir.
 
+`track add` and `track set` accept a nicos-resume package receipt through
+`--resume-manifest`. JobKit rejects candidate/history manifests, incomplete or
+failed verification gate sets, malformed SHA-256 digests, and an upload file
+whose digest differs from the selected manifest artifact. It records source,
+claim-set, and selected-artifact digests plus version, variant, and artifact
+kind without copying the resume itself into the ledger. JobKit-generated
+`apply`/`apply-plan` artifacts receive the same digest and tailoring-receipt
+tags automatically; eligibility overrides are structured tags rather than
+notes alone.
+
 ## Publication checks
 
 Local publication gate (no remote push):
 
 ```sh
-make publish-ready   # alias: make verify-publication
+make publish-ready   # race + publication + optional ClaimGuard bridge
 make demo            # isolated JOBKIT_HOME; uses examples/ only
 ```
 
 `make verify` runs gofmt, the test suite, `go vet`, and the deterministic
-dependency license audit. The audit fails closed if a compiled non-standard
-dependency is not allowlisted or if its upstream license text changes.
+dependency license audit. `make publish-ready` additionally runs the race
+suite, history/tree secret scans, and the optional ClaimGuard bridge. The
+license audit fails closed if a compiled non-standard dependency is not
+allowlisted or if its upstream license text changes.
 `LICENSE` covers Nico-authored JobKit code; `THIRD_PARTY_NOTICES.md` records
 dependency rights. Personal JobKit state under `~/.jobkit` is never part of a
 source publication — only synthetic `examples/` fixtures ship.
@@ -112,10 +135,17 @@ and `--min-comp N` use extracted salary ranges when postings include them;
 `jobkit calibrate apply` writes `~/.jobkit/calibration.yaml`, all public-board
 search ranking uses those active weights automatically.
 
+When `~/.jobkit/eligibility.yaml` exists, `find` and saved searches assess hard
+constraints before opportunity sorting and default to the `actionable` set
+(`eligible` + `review`). `ineligible` roles are excluded by default. `apply`
+and `apply-plan` fail closed for an ineligible role; `--override-eligibility`
+is an explicit human escape hatch and the override is recorded in the tracker
+and package receipt. JobKit never submits an application or sends outreach.
+
 Environment:
 
-- `JOBKIT_HOME` — state dir (default `~/.jobkit`): profile, searches,
-  companies, calibration, ledgers, telemetry, out/
+- `JOBKIT_HOME` — state dir (default `~/.jobkit`): profile, eligibility,
+  searches, companies, calibration, ledgers, telemetry, out/
 - `JOBKIT_PROFILE` — profile path override (useful for multiple personas)
 - `JOBKIT_TELEMETRY=off` — disable per-run telemetry (`telemetry.jsonl`)
 - `JOBKIT_CHROME_BIN` — explicit Chrome/Chromium binary for PDF export
@@ -141,6 +171,15 @@ Environment:
   compensation, freshness, saturation, and persona scores. The default weights
   are useful immediately; `jobkit calibrate apply` tunes them against observed
   inbox/tracker outcomes as the hunt produces signal.
+- **Eligibility is not fit.** Country/language/work-mode and role-family hard
+  stops are evaluated independently. Unknown constraints become `review`, not
+  a silent rejection; an excellent keyword score cannot promote an ineligible
+  role into an application package.
+- **A weekly slate is a policy, not a vibes list.** The default mix is five
+  platform/DevEx/AI-infrastructure roles, three full-stack product roles, one
+  technical-adoption/FDE role, and one stretch role, with at most two from one
+  employer. Missing lanes remain visible as gaps rather than being backfilled
+  with the wrong work.
 - **Deterministic over generative.** Resume tailoring and letters are pure
   functions of profile + JD — no API keys, no hallucinated experience. An
   optional LLM polish pass is a planned add-on, not a dependency.
@@ -154,6 +193,7 @@ cmd/jobkit/          CLI dispatch + usage (incl. the apply golden path)
 internal/profile/    master profile schema + starter template
 internal/jd/         JD parser + embedded skills lexicon + URL fetch/HTML→text
 internal/jobsearch/  Greenhouse/Lever/Ashby search + opportunity ranking
+internal/eligibility/ hard-constraint policy + explainable assessment
 internal/calibration/ outcome-based opportunity weight calibration
 internal/searches/   saved board groups + search profiles
 internal/company/    hidden-market target-company intelligence
