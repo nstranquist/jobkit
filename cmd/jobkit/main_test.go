@@ -14,6 +14,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/home"
 	"github.com/nstranquist/jobkit/internal/inbox"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
+	"github.com/nstranquist/jobkit/internal/profile"
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
@@ -46,6 +47,76 @@ func TestDoctorRejectsAmbiguousFixFlag(t *testing.T) {
 	}
 	if cliErr.Code != envelope.CodeInvalidArgs || cliErr.Hint != "use --fix-permissions" {
 		t.Fatalf("err = %#v, want exact --fix-permissions guidance", cliErr)
+	}
+}
+
+func TestApplyPlanReusesTrackerAndOutputForSameInboxItem(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("JOBKIT_HOME", stateDir)
+	profilePath, err := home.ProfilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profile.WriteTemplate(profilePath); err != nil {
+		t.Fatal(err)
+	}
+	inboxPath, err := home.InboxPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	il := &inbox.Ledger{Path: inboxPath}
+	job := inbox.Job{
+		Company: "Acme", Title: "Platform Engineer", URL: "https://example.com/jobs/platform",
+		Location: "Remote - United States", Remote: true, Description: "Build reliable Go platform services.",
+		JDText: "Company: Acme\nTitle: Platform Engineer\nBuild reliable Go platform services.\n",
+	}
+	inboxID := inbox.NewID(job)
+	if err := il.Append(inbox.Event{ID: inboxID, Type: inbox.EvSaved, Status: "new", Job: &job, MatchScore: 80}); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"apply-plan", inboxID, "--allow-unassessed-eligibility"}
+	if err := cmdApplyPlan(parseArgs(args)); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdApplyPlan(parseArgs(args)); err != nil {
+		t.Fatal(err)
+	}
+
+	ledgerPath, err := home.LedgerPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	apps, err := (&track.Ledger{Path: ledgerPath}).Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(apps) != 1 {
+		t.Fatalf("applications = %d, want one reused tracker record", len(apps))
+	}
+	if len(apps[0].Events) != 2 || apps[0].Tags[track.TagInboxID] != inboxID {
+		t.Fatalf("application = %#v, want created + refresh note with inbox identity", apps[0])
+	}
+	outRoot, err := home.OutDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != apps[0].ID+"--plan" {
+		t.Fatalf("output entries = %#v, want one deterministic plan directory", entries)
+	}
+	items, err := il.Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := inbox.Find(items, inboxID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Status != "planned" || len(item.Events) != 2 {
+		t.Fatalf("inbox item = %#v, want one planned transition", item)
 	}
 }
 

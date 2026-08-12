@@ -72,6 +72,7 @@ const (
 	TagClaimSetDigest       = "claim_set_digest"
 	TagTailoringReceiptID   = "tailoring_receipt_id"
 	TagEligibilityOverride  = "eligibility_override"
+	TagInboxID              = "inbox_id"
 	TagLane                 = "lane"
 	TagSource               = "source"
 )

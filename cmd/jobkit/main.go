@@ -2317,20 +2317,24 @@ func cmdApplyPlan(c *cli) error {
 		return err
 	}
 	res := match.Score(p, j)
+	l, err := openLedger()
+	if err != nil {
+		return err
+	}
+	apps, err := l.Replay()
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	trackID, reused := reusableApplyPlanTrackID(apps, company, role, sourceURL, inboxID)
+	if !reused {
+		trackID = track.NewID(apps, company, role)
+	}
 
 	outRoot, err := home.OutDir()
 	if err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
-	baseID := track.Slugify(company) + "--" + track.Slugify(role) + "--plan"
-	dir := filepath.Join(outRoot, baseID)
-	exists, err := pathExists(dir)
-	if err != nil {
-		return envelope.New(envelope.CodeIOFailed, err.Error())
-	}
-	if exists {
-		dir = filepath.Join(outRoot, baseID+"-"+time.Now().Format("20060102-150405"))
-	}
+	dir := filepath.Join(outRoot, trackID+"--plan")
 	if err := privatefs.EnsureDir(dir); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
@@ -2370,16 +2374,6 @@ func cmdApplyPlan(c *cli) error {
 		return envelope.New(envelope.CodeInternal, err.Error())
 	}
 
-	l, err := openLedger()
-	if err != nil {
-		return err
-	}
-	apps, err := l.Replay()
-	if err != nil {
-		return envelope.New(envelope.CodeIOFailed, err.Error())
-	}
-	trackID := track.NewID(apps, company, role)
-
 	files := map[string]string{
 		"plan.md":        renderPlan(company, role, sourceURL, trackID, inboxID, dir, res, assessment),
 		"letter.txt":     letterOut,
@@ -2404,6 +2398,9 @@ func cmdApplyPlan(c *cli) error {
 	if err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
+	if inboxID != "" {
+		provenanceTags[track.TagInboxID] = inboxID
+	}
 	eligibilityNote := ""
 	if assessment != nil {
 		eligibilityNote = fmt.Sprintf(" · eligibility %s", assessment.Status)
@@ -2411,10 +2408,15 @@ func cmdApplyPlan(c *cli) error {
 			eligibilityNote += " (human override: " + assessment.Override + ")"
 		}
 	}
-	if err := l.Append(track.Event{
+	trackEvent := track.Event{
 		ID: trackID, Type: track.EvCreated, Company: company, Role: role, URL: sourceURL, Status: "interested",
 		Note: fmt.Sprintf("apply-plan %.0f/100%s · artifacts: %s", res.Score, eligibilityNote, dir), Tags: provenanceTags,
-	}); err != nil {
+	}
+	if reused {
+		trackEvent.Type = track.EvNote
+		trackEvent.Status = ""
+	}
+	if err := l.Append(trackEvent); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 	if inboxID != "" {
@@ -2422,15 +2424,25 @@ func cmdApplyPlan(c *cli) error {
 		if err != nil {
 			return err
 		}
-		if err := il.Append(inbox.Event{ID: inboxID, Type: inbox.EvStatus, Status: "planned", Note: "apply-plan artifacts: " + dir}); err != nil {
+		items, err := il.Replay()
+		if err != nil {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		item, err := inbox.Find(items, inboxID)
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		if item.Status == "new" || item.Status == "shortlisted" {
+			if err := il.Append(inbox.Event{ID: inboxID, Type: inbox.EvStatus, Status: "planned", Note: "apply-plan artifacts: " + dir}); err != nil {
+				return envelope.New(envelope.CodeIOFailed, err.Error())
+			}
 		}
 	}
 	fileNames := sortedKeys(files)
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"dir": dir, "track_id": trackID, "inbox_id": inboxID, "score": res.Score,
-			"eligibility": assessment, "files": fileNames,
+			"eligibility": assessment, "files": fileNames, "reused": reused,
 		})
 		return nil
 	}
@@ -2439,9 +2451,43 @@ func cmdApplyPlan(c *cli) error {
 	if assessment != nil {
 		fmt.Printf("  eligibility: %s\n", assessment.Status)
 	}
-	fmt.Printf("  tracked:     %s (interested)\n", trackID)
+	if reused {
+		fmt.Printf("  tracked:     %s (reused)\n", trackID)
+	} else {
+		fmt.Printf("  tracked:     %s (interested)\n", trackID)
+	}
 	fmt.Println("next: open plan.md, review artifacts, submit manually, then mark applied")
 	return nil
+}
+
+func reusableApplyPlanTrackID(apps []*track.Application, company, role, sourceURL, inboxID string) (string, bool) {
+	var chosen *track.Application
+	for _, app := range apps {
+		if app.ID == "" || filepath.Base(app.ID) != app.ID || track.TerminalStatuses[app.Status] || !strings.EqualFold(strings.TrimSpace(app.Company), strings.TrimSpace(company)) || !strings.EqualFold(strings.TrimSpace(app.Role), strings.TrimSpace(role)) {
+			continue
+		}
+		sameInbox := inboxID != "" && app.Tags[track.TagInboxID] == inboxID
+		sameSource := sourceURL != "" && strings.TrimSpace(app.URL) == strings.TrimSpace(sourceURL) && hasApplyPlanCreation(app)
+		if !sameInbox && !sameSource {
+			continue
+		}
+		if chosen == nil || app.CreatedAt.Before(chosen.CreatedAt) || (app.CreatedAt.Equal(chosen.CreatedAt) && app.ID < chosen.ID) {
+			chosen = app
+		}
+	}
+	if chosen == nil {
+		return "", false
+	}
+	return chosen.ID, true
+}
+
+func hasApplyPlanCreation(app *track.Application) bool {
+	for _, event := range app.Events {
+		if event.Type == track.EvCreated && strings.HasPrefix(event.Note, "apply-plan ") {
+			return true
+		}
+	}
+	return false
 }
 
 func planSource(src string) (text, company, role, sourceURL, inboxID string, err error) {
