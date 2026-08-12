@@ -46,7 +46,7 @@ type Violation struct {
 // by the profile timeline, not this gate, and flagging every "2026" would
 // bury real violations.
 var quantified = regexp.MustCompile(
-	`(?i)\$\d[\d,]*(?:\.\d+)?[km]?|\d+(?:\.\d+)?%|\d[\d,]*\+|\d+(?:\.\d+)?\s*(?:years?|yrs?)\b|\b\d{3,}\b`)
+	`(?i)\$\d[\d,]*(?:\.\d+)?[km]?|\d+(?:\.\d+)?%|\b\d{1,3}(?:,\d{3})+\+?|\d[\d,]*\+|\d+(?:\.\d+)?\s*(?:years?|yrs?)\b|\b\d{3,}\b`)
 
 var yearLike = regexp.MustCompile(`^(19|20)\d{2}$`)
 

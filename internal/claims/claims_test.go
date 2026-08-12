@@ -49,6 +49,16 @@ func TestExtractSkipsCalendarYears(t *testing.T) {
 	}
 }
 
+func TestExtractCommaNumberWithoutPlus(t *testing.T) {
+	got := Extract("The public fixture indexed 1,200 services.")
+	if len(got) != 1 || got[0].Token != "1200" {
+		t.Fatalf("comma number = %+v, want token 1200", got)
+	}
+	if violations := Check("indexed 1,200 services", []string{"indexed 1,200 services in the public fixture"}); violations != nil {
+		t.Fatalf("allowlisted comma number was rejected: %+v", violations)
+	}
+}
+
 func TestCheckCoversAndFlags(t *testing.T) {
 	allowed := []string{
 		"Backstage IDP serving 1,000+ developers across 30,000+ repositories",

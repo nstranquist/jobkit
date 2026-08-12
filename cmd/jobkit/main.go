@@ -42,7 +42,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
-const version = "0.8.0"
+const version = "0.9.0"
 
 // boolFlags take no value; everything else consumes one.
 var boolFlags = map[string]bool{
@@ -150,6 +150,8 @@ func dispatch(cmd string, c *cli) error {
 		return cmdLetter(c)
 	case "prep":
 		return cmdPrep(c)
+	case "coach":
+		return cmdCoach(c)
 	case "apply-plan":
 		return cmdApplyPlan(c)
 	case "apply":
@@ -3605,6 +3607,7 @@ CORE
   search init|list|show|run|digest
   match <jd> | apply <jd> | apply-plan <jd|inbox-id>
   resume build [jd] | letter build <jd> | prep <jd>
+  coach source|deck|run|stats|serve|path
   claims init|check|show|path
   inbox add|recheck|slate|list|show|stale|set|note|outreach|form
   track add|list|show|set|note|board|stats|followups|remind
@@ -3708,6 +3711,25 @@ ARTIFACTS
                 [--manager NAME] [--out PATH|auto]
   prep <jd> [--out PATH|auto]       interview-prep sheet: deep-dives, gap defense,
                                     STAR story bank, questions to ask
+
+INTERVIEW COACH (private state under ~/.jobkit/coach)
+  coach source import <public-bundle.json>
+                                    validate and store public-safe project,
+                                    story, claim, and evidence cards
+  coach source show|path            inspect the source digest or source path
+  coach deck --job <inbox-id|jd-file|url>
+              [--mode project|behavioral|system-design|claim-defense|mixed]
+              [--minutes N] [--projects id,id] [--out PATH|auto]
+                                    create and save a deterministic practice deck
+  coach run <deck-id|latest> [--answers FILE] [--provider NAME]
+              [--provider-config FILE] [--useful yes|no]
+                                    score answers and append one local session;
+                                    model feedback is advisory and fail-open
+  coach stats [--project ID]        show scores, claim violations, and due reviews
+  coach serve [--addr 127.0.0.1:7331] [--provider-config FILE]
+                                    start the localhost text and local-voice UI;
+                                    non-loopback addresses fail closed
+  coach path                        print the private coach state directory
 
 CLAIMS GATE (fact lock for generated material: ~/.jobkit/claims.yaml)
   claims init [--from FILE] [--force]

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "example": {
+      "argv": ["coach-feedback-adapter"],
+      "timeout_seconds": 45
+    }
+  },
+  "transcriber": {
+    "argv": ["coach-transcribe-adapter", "--file", "{file}"],
+    "timeout_seconds": 45
+  }
+}

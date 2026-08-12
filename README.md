@@ -33,6 +33,7 @@ declared in `portfolio/manifest.yaml`.
 | Tailored resumes | `jobkit resume build <jd> [--format md\|txt\|html\|pdf]` | Skills reordered and bullets ranked by JD relevance (capped at 4/role); renders Markdown, ATS-safe plain text, print-ready single-file HTML, or PDF via headless Chrome |
 | Cover letters | `jobkit letter build <jd> [--tone professional\|warm\|direct]` | Deterministic draft that weaves your top matched skills with their best supporting bullet — honest about the top required gap |
 | Interview prep | `jobkit prep <jd>` | Per-skill deep-dive questions anchored to your own stories, gap-defense bridges, a STAR story bank, questions to ask them |
+| Interview coach | `jobkit coach source\|deck\|run\|stats\|serve` | Evidence-linked project drills, deterministic claim-safe scoring, spaced reviews, optional advisory AI feedback, and a localhost practice UI |
 | Application tracker | `jobkit track add\|list\|show\|set\|note\|board\|stats\|followups\|remind` | Append-only JSONL event ledger; funnel board, response-rate stats, verified nicos-resume manifest import, artifact/claim provenance, follow-up nudges, and text/ICS reminder export |
 
 ## Quick start
@@ -73,6 +74,14 @@ jobkit apply https://job-boards.greenhouse.io/acme/jobs/123 --tone warm
 #   → tracked with its match score
 
 jobkit prep posting.txt                 # interview-prep sheet
+# In a nicos-tools checkout, verify and import the fact-locked source:
+ndev catalog portfolio coach sync
+# Or import a reviewed standalone source bundle:
+jobkit coach source import examples/coach-source.json
+jobkit coach deck --job posting.txt --mode mixed --minutes 20
+jobkit coach run latest --answers examples/coach-answers.json
+jobkit coach stats
+jobkit coach serve                      # http://127.0.0.1:7331 only
 jobkit track set acme --status applied \
   --resume-manifest ~/dev/nicos-resume/formats-workspace/exports/sendable/manifest-general_v1_7_3.json \
   --resume-artifact pdf \
@@ -84,6 +93,24 @@ jobkit track remind --format ics --out auto
 
 `make demo` runs the full walkthrough against `examples/` in an isolated
 temp state dir.
+
+Coach source bundles use the public `jobkit.coach.source.v1` contract. The
+import rejects local paths, private evidence markers, unknown claim links, and
+non-public scope. A deck becomes invalid when its imported source changes.
+Raw answers stay in `~/.jobkit/coach/sessions.jsonl`.
+
+Deterministic scoring is authoritative. An unsupported quantified claim caps
+the answer below 60 and schedules it for review in one day. Optional provider
+commands receive JSON on standard input and return advisory JSON on standard
+output. JobKit executes configured argument arrays directly, without a shell.
+The ndev bridge creates a local Ollama adapter and clearly named hosted Gemini
+and OpenAI adapters. Selecting a hosted adapter is an explicit data boundary:
+it sends the practice request and answer text to that provider.
+
+`jobkit coach serve` accepts loopback addresses only. The web UI uses the same
+deck, scoring, session, feedback, and statistics contracts as the CLI. A
+configured local transcriber adds microphone answers without sending audio
+through JobKit.
 
 `track add` and `track set` accept a nicos-resume package receipt through
 `--resume-manifest`. JobKit rejects candidate/history manifests, incomplete or

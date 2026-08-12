@@ -1,0 +1,24 @@
+{
+  "answers": [
+    {
+      "question_id": "q01",
+      "text": "The problem was inconsistent service ownership. I owned the Go architecture and built typed entities, PostgreSQL indexing, and fail-closed drift checks. I chose incremental indexing because a full rebuild increased rollout risk. The public evaluation result indexed 1,200 services."
+    },
+    {
+      "question_id": "q02",
+      "text": "Situation: teams used inconsistent metadata. Task: create one reviewable contract. Action: I defined typed ownership rules, added drift checks, and documented rollback. Result: the public fixture indexed 1,200 services with a clear evidence boundary."
+    },
+    {
+      "question_id": "q03",
+      "text": "I would start with functional and capacity requirements. The data flow uses an ingestion queue, typed validation, PostgreSQL storage, and indexed reads. Failure modes include stale metadata and partial ingestion. Observability covers lag and rejected records. The rollout uses a shadow index and a measured cutover."
+    },
+    {
+      "question_id": "q04",
+      "text": "The measured result was 1,200 services in a public evaluation fixture. The source is the public case study. My contribution was the typed catalog and drift contract. The boundary is explicit: this is fixture scale, not customer adoption."
+    },
+    {
+      "question_id": "q05",
+      "text": "The hard decision was fail-closed drift. I chose it because silent stale metadata created ownership risk. The alternative was warning-only validation. That alternative improved availability but allowed an invalid catalog to look healthy. The main failure mode was blocking a legitimate update, so the design included a repair path."
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-12T18:00:00Z",
+  "scope": "public",
+  "candidate": {
+    "name": "Alex Rivera",
+    "headline": "Senior platform engineer",
+    "skills": ["Go", "PostgreSQL", "AWS", "observability"]
+  },
+  "projects": [
+    {
+      "id": "service-catalog",
+      "name": "Service Catalog",
+      "summary": "A typed Go service catalog with relationship search and fail-closed drift checks.",
+      "url": "https://example.com/service-catalog",
+      "skills": ["Go", "PostgreSQL", "platform engineering"],
+      "decisions": ["typed entities", "incremental indexing", "fail-closed drift"],
+      "evidence": [
+        {
+          "id": "catalog-case-study",
+          "label": "Public architecture case study",
+          "url": "https://example.com/service-catalog/case-study",
+          "claim_ids": ["catalog-scale"]
+        }
+      ]
+    },
+    {
+      "id": "deploy-observer",
+      "name": "Deploy Observer",
+      "summary": "A local-first deployment observer with trace correlation and bounded retention.",
+      "url": "https://example.com/deploy-observer",
+      "skills": ["Go", "AWS", "observability"],
+      "decisions": ["append-only events", "bounded retention", "offline operation"],
+      "evidence": [
+        {
+          "id": "observer-readme",
+          "label": "Public README",
+          "url": "https://example.com/deploy-observer"
+        }
+      ]
+    }
+  ],
+  "stories": [
+    {
+      "id": "catalog-rollout",
+      "title": "Service catalog rollout",
+      "situation": "Engineering teams used inconsistent service metadata.",
+      "task": "Create one reviewable catalog contract.",
+      "actions": [
+        "Defined typed entities and ownership rules.",
+        "Added drift checks before broad adoption.",
+        "Published migration and rollback steps."
+      ],
+      "result": "The catalog indexed 1,200 services in the public evaluation fixture.",
+      "skills": ["platform engineering", "technical leadership"],
+      "evidence_ids": ["catalog-case-study"],
+      "claim_ids": ["catalog-scale"]
+    }
+  ],
+  "claims": [
+    {
+      "id": "catalog-scale",
+      "text": "indexed 1,200 services in the public evaluation fixture",
+      "source": "https://example.com/service-catalog/case-study"
+    }
+  ],
+  "source_digests": {
+    "public_profile": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "public_projects": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  }
+}

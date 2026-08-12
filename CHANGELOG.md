@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0] — 2026-08-12
+
+- **Evidence-linked interview coach** — `jobkit coach source|deck|run|stats`
+  validates public project evidence, builds role-specific practice decks,
+  scores answers, and schedules reviews after 1, 3, 7, or 14 days.
+- **Claim-safe scoring** — unsupported quantified claims cap an answer below
+  60. The session records each violation and schedules a one-day review.
+- **Provider-neutral feedback** — optional adapters use versioned JSON on
+  standard input and output. JobKit executes an argument array without a shell.
+  Provider errors do not replace or block deterministic scoring.
+- **Localhost practice UI** — `jobkit coach serve` binds to loopback addresses
+  only. The UI uses the same deck, scoring, session, and statistics engine.
+  A configured local transcriber can add microphone answers.
+- **Private, append-only practice state** — source bundles, decks, and sessions
+  use restrictive local permissions under `~/.jobkit/coach`.
+- **Stale-source and answer gates** — scoring rejects a deck after its source
+  changes. It also rejects missing, duplicate, and unknown question IDs.
+- **Provider selection in the localhost UI** — configured advisory providers
+  are available beside the deck selector. Provider errors stay supplemental
+  and never replace the deterministic score.
+
 ## [0.8.0] — 2026-07-22
 
 - **Eligibility as an independent signal** — `jobkit eligibility

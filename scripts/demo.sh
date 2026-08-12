@@ -36,6 +36,12 @@ $BIN letter build $JD --tone direct | head -20
 step "prep (interview sheet)"
 $BIN prep $JD | head -16
 
+step "coach (evidence-linked drill)"
+$BIN coach source import examples/coach-source.json
+$BIN coach deck --job $JD --mode mixed --minutes 20 --projects service-catalog
+$BIN coach run latest --answers examples/coach-answers.json
+$BIN coach stats
+
 step "apply (golden path)"
 $BIN apply $JD --tone direct --location "Remote - US" --remote
 

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JobKit Coach Operator Guide</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#5b6477; --line:#d8deea; --panel:#f5f7fb; --accent:#145cc5; --warn:#8a4b08; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#fff; font:16px/1.55 system-ui,sans-serif; }
+    main { max-width:980px; margin:auto; padding:40px 24px 72px; }
+    h1 { margin:0 0 10px; font-size:2.25rem; } h2 { margin-top:34px; }
+    p { max-width:760px; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .card { border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:18px; }
+    .card h3 { margin-top:0; } code { background:#e9eef8; border-radius:4px; padding:2px 5px; }
+    pre { overflow:auto; padding:16px; border-radius:10px; color:#eef3ff; background:#111a2c; }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid var(--line); padding:10px; text-align:left; vertical-align:top; }
+    .warning { border-left:4px solid var(--warn); padding-left:14px; color:var(--warn); }
+    @media(max-width:760px){.grid{grid-template-columns:1fr}main{padding:24px 16px 48px}}
+  </style>
+</head>
+<body><main>
+  <header>
+    <h1>JobKit Coach operator guide</h1>
+    <p>JobKit Coach creates role-specific interview drills from reviewed public evidence. It stores all practice state on this computer.</p>
+  </header>
+
+  <section>
+    <h2>Workflow</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>1. Import evidence</h3>
+        <p>Import a public source bundle. The import rejects private paths and broken evidence links.</p>
+      </article>
+      <article class="card">
+        <h3>2. Build a deck</h3>
+        <p>Build a deck for one job description. Choose a drill mode and a time limit.</p>
+      </article>
+      <article class="card">
+        <h3>3. Practice and review</h3>
+        <p>Answer in the terminal or localhost UI. JobKit records the score and next review date.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Commands</h2>
+    <pre><code># nicos-tools users: verify the resume facts and public proof, then import.
+ndev catalog portfolio coach sync
+
+# Standalone JobKit users can import a reviewed bundle directly.
+jobkit coach source import public-bundle.json
+jobkit coach deck --job posting.txt --mode mixed --minutes 20
+jobkit coach run latest
+jobkit coach stats
+jobkit coach serve</code></pre>
+    <p>Open <code>http://127.0.0.1:7331</code> after the server starts. The server rejects non-loopback addresses.</p>
+  </section>
+
+  <section>
+    <h2>Scoring contract</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Weight</th><th>What JobKit checks</th></tr></thead>
+      <tbody>
+        <tr><td>Structure</td><td>25</td><td>The answer contains the required answer structure.</td></tr>
+        <tr><td>Decisions and tradeoffs</td><td>25</td><td>The answer covers expected concepts, alternatives, constraints, and risks.</td></tr>
+        <tr><td>Role relevance</td><td>20</td><td>The answer uses skills from the target job description.</td></tr>
+        <tr><td>Evidence safety</td><td>20</td><td>Every quantified claim matches an imported claim.</td></tr>
+        <tr><td>Concision</td><td>10</td><td>The answer length fits the allotted response time.</td></tr>
+      </tbody>
+    </table>
+    <p class="warning">CAUTION: An unsupported quantified claim caps the answer below 60. JobKit schedules that answer for review in one day.</p>
+  </section>
+
+  <section>
+    <h2>AI and voice adapters</h2>
+    <p>Deterministic scoring remains authoritative. A model can add advisory feedback after scoring.</p>
+    <p>JobKit executes configured argument arrays directly. It does not use a shell.</p>
+    <p>A transcriber can receive a private temporary WAV file. JobKit deletes that file after transcription.</p>
+    <p>The ndev bridge configures local Ollama and optional hosted providers. A provider name that ends in <code>-hosted</code> sends the practice request and answer text to that provider. Select it only when you approve that boundary.</p>
+  </section>
+
+  <section>
+    <h2>Privacy boundary</h2>
+    <p>Source bundles must use <code>scope: public</code>. Do not import private catalog data or local evidence paths.</p>
+    <p>Answers and session telemetry stay under <code>~/.jobkit/coach</code>. Hosted provider use requires an explicit provider name.</p>
+    <p>Build a new deck after the source bundle changes. JobKit rejects stale decks and malformed answer sets.</p>
+  </section>
+</main></body>
+</html>
