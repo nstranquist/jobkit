@@ -34,6 +34,21 @@ func TestHelpCompactIsTokenEfficient(t *testing.T) {
 	}
 }
 
+func TestDoctorRejectsAmbiguousFixFlag(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	err := cmdDoctor(parseArgs([]string{"doctor", "permissions", "--fix"}))
+	if err == nil {
+		t.Fatal("expected --fix to fail")
+	}
+	var cliErr *envelope.Err
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("err = %T %v, want envelope error", err, err)
+	}
+	if cliErr.Code != envelope.CodeInvalidArgs || cliErr.Hint != "use --fix-permissions" {
+		t.Fatalf("err = %#v, want exact --fix-permissions guidance", cliErr)
+	}
+}
+
 func TestSaveJobsToInboxDedupesWithinRun(t *testing.T) {
 	t.Setenv("JOBKIT_HOME", t.TempDir())
 

@@ -184,6 +184,9 @@ func dispatch(cmd string, c *cli) error {
 }
 
 func cmdDoctor(c *cli) error {
+	if _, ok := c.flags["fix"]; ok {
+		return envelope.New(envelope.CodeInvalidArgs, "unknown option --fix").WithHint("use --fix-permissions")
+	}
 	sub := "permissions"
 	if len(c.args) > 1 {
 		sub = c.args[1]
