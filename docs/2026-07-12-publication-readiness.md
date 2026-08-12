@@ -32,7 +32,7 @@ Reviewed: 2026-07-12 · re-verified **2026-08-12** (`make publish-ready` + isola
 
 1. Review `git log --oneline origin/main..main`, the README, and the case study.
 2. Run `make publish-ready` and `make demo` from a clean worktree.
-3. Restore GitHub access with `gh auth login -h github.com`.
+3. Restore GitHub access with `gh auth refresh -h github.com`.
 4. Push the reviewed source with `git push origin main`.
 5. Confirm the public run at <https://github.com/nstranquist/jobkit/actions>.
 6. After CI passes, create the SemVer release:
