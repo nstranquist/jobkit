@@ -120,7 +120,9 @@ claim-set, and selected-artifact digests plus version, variant, and artifact
 kind without copying the resume itself into the ledger. JobKit-generated
 `apply`/`apply-plan` artifacts receive the same digest and tailoring-receipt
 tags automatically; eligibility overrides are structured tags rather than
-notes alone.
+notes alone. A repeated `apply-plan` for the same active inbox item reuses its
+tracker record and private output directory. It does not move an applied,
+skipped, or archived inbox item back to `planned`.
 
 ## Publication checks
 
