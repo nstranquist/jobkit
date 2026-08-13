@@ -80,7 +80,8 @@ func inspectPath(path string, want os.FileMode) (bool, os.FileMode, error) {
 	if err != nil {
 		return false, observed, err
 	}
-	allowed := false
+	userDirect := false
+	userInherited := false
 	for index := uint16(0); index < dacl.AceCount; index++ {
 		var ace *windows.ACCESS_ALLOWED_ACE
 		if err := windows.GetAce(dacl, uint32(index), &ace); err != nil {
@@ -93,15 +94,21 @@ func inspectPath(path string, want os.FileMode) (bool, os.FileMode, error) {
 		if !sid.Equals(user) && !sid.Equals(system) && !sid.Equals(administrators) {
 			return false, observed, nil
 		}
-		if want == DirMode {
-			inherit := uint8(windows.OBJECT_INHERIT_ACE | windows.CONTAINER_INHERIT_ACE)
-			if ace.Header.AceFlags&inherit != inherit {
-				return false, observed, nil
-			}
+		if !sid.Equals(user) {
+			continue
 		}
-		allowed = allowed || sid.Equals(user)
+		if ace.Header.AceFlags&windows.INHERIT_ONLY_ACE == 0 {
+			userDirect = true
+		}
+		inherit := uint8(windows.OBJECT_INHERIT_ACE | windows.CONTAINER_INHERIT_ACE)
+		if ace.Header.AceFlags&inherit == inherit {
+			userInherited = true
+		}
 	}
-	return allowed, observed, nil
+	if want == DirMode {
+		return userDirect && userInherited, observed, nil
+	}
+	return userDirect, observed, nil
 }
 
 func currentUserSID() (*windows.SID, error) {
