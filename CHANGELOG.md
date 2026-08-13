@@ -40,9 +40,12 @@
   an event that another JobKit process appends concurrently.
 - **Exact claim shapes** — money, percentages, magnitude values, lower bounds,
   and bare counts no longer authorize one another when their digits match.
-- **Dependency and CI hardening** — Go 1.26.5, maintained YAML v3, exact action
+- **Dependency and CI hardening** — Go 1.26.6, maintained YAML v3, exact action
   pins, Linux/macOS/Windows tests, reachable-code vulnerability scanning, and
   a three-module fail-closed license allowlist.
+- **Actionable portable-test failures** — the cross-platform matrix converts
+  `go test -json` failures into GitHub annotations. A signed-out audit can see
+  the failing package and test without access to private runner logs.
 - **Bounded provider execution** — provider argument and output sizes are
   capped, timeouts stay mandatory, and persisted failures omit raw standard
   error text.

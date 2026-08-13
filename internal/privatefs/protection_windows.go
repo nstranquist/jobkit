@@ -20,7 +20,7 @@ func restrictPath(path string, mode os.FileMode) error {
 		inheritance = "OICI"
 	}
 	descriptor, err := windows.SecurityDescriptorFromString(
-		fmt.Sprintf("D:P(A;%s;GA;;;%s)", inheritance, user.String()),
+		fmt.Sprintf("D:P(A;%s;GA;;;SY)(A;%s;GA;;;BA)(A;%s;GA;;;%s)", inheritance, inheritance, inheritance, user.String()),
 	)
 	if err != nil {
 		return fmt.Errorf("build private access-control list: %w", err)
@@ -72,6 +72,14 @@ func inspectPath(path string, want os.FileMode) (bool, os.FileMode, error) {
 	if err != nil {
 		return false, observed, err
 	}
+	system, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
+	if err != nil {
+		return false, observed, err
+	}
+	administrators, err := windows.CreateWellKnownSid(windows.WinBuiltinAdministratorsSid)
+	if err != nil {
+		return false, observed, err
+	}
 	allowed := false
 	for index := uint16(0); index < dacl.AceCount; index++ {
 		var ace *windows.ACCESS_ALLOWED_ACE
@@ -82,7 +90,7 @@ func inspectPath(path string, want os.FileMode) (bool, os.FileMode, error) {
 			return false, observed, nil
 		}
 		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
-		if !sid.Equals(user) {
+		if !sid.Equals(user) && !sid.Equals(system) && !sid.Equals(administrators) {
 			return false, observed, nil
 		}
 		if want == DirMode {
@@ -91,7 +99,7 @@ func inspectPath(path string, want os.FileMode) (bool, os.FileMode, error) {
 				return false, observed, nil
 			}
 		}
-		allowed = true
+		allowed = allowed || sid.Equals(user)
 	}
 	return allowed, observed, nil
 }

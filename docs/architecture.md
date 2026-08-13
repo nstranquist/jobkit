@@ -14,7 +14,7 @@ These constraints drive the stack. Popularity alone is not a selection rule.
 
 | Area | Selected approach | Why it fits | Rejected default |
 |---|---|---|---|
-| Runtime | Go 1.26.5 and one CLI binary | Fast startup, static typing, simple cross-platform builds, strong standard library, and low deployment overhead | A Node or Python runtime would add an interpreter and a larger dependency tree. Rust would increase implementation cost without a demonstrated runtime need. |
+| Runtime | Go 1.26.6 and one CLI binary | Fast startup, static typing, simple cross-platform builds, strong standard library, and low deployment overhead | A Node or Python runtime would add an interpreter and a larger dependency tree. Rust would increase implementation cost without a demonstrated runtime need. |
 | Human-edited state | YAML through `go.yaml.in/yaml/v3` | Profiles, searches, companies, claims, eligibility, and calibration remain readable. The maintained v3 module supports strict decoding. | JSON is noisy for regular editing. TOML would add another schema without solving a current problem. |
 | Machine contracts | Versioned JSON | Agents and provider adapters get explicit, portable schemas and stable error envelopes. | Free-form text is ambiguous. Go-internal types would couple consumers to this repository. |
 | Event history | Append-only JSONL | Each application, contact, practice session, and telemetry event can be audited and replayed. One damaged line does not hide the rest of the history. | A database would add migration and operational cost before query volume requires it. Rewriting one JSON document would weaken history and concurrent-write safety. |
