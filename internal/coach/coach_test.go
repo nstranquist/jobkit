@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/nstranquist/jobkit/internal/jd"
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 func testBundle() *SourceBundle {
@@ -226,12 +227,12 @@ func TestStoreRoundTripStatsAndPrivateModes(t *testing.T) {
 		t.Fatalf("stats = %+v", report)
 	}
 	for _, path := range []string{store.SourcePath(), store.SessionsPath(), filepath.Join(store.DecksDir(), deck.ID+".json")} {
-		info, err := os.Stat(path)
+		private, observed, err := privatefs.Inspect(path, privatefs.FileMode)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Mode().Perm() != 0o600 {
-			t.Fatalf("%s mode = %o, want 600", path, info.Mode().Perm())
+		if !private {
+			t.Fatalf("%s protection is not private (mode %o, want 600)", path, observed)
 		}
 	}
 }

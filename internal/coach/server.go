@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 type Server struct {
@@ -313,7 +315,7 @@ func (s *Server) handleTranscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	path := temp.Name()
 	defer os.Remove(path)
-	if err := temp.Chmod(0o600); err != nil {
+	if err := privatefs.Restrict(path, privatefs.FileMode); err != nil {
 		temp.Close()
 		writeAPIError(w, http.StatusInternalServerError, err)
 		return

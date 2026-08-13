@@ -28,6 +28,10 @@ func RenderPDF(htmlContent, outPath string) error {
 	}
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath)
+	if err := privatefs.Restrict(tmpPath, privatefs.FileMode); err != nil {
+		tmp.Close()
+		return err
+	}
 	n, err := tmp.WriteString(htmlContent)
 	if err != nil {
 		if closeErr := tmp.Close(); closeErr != nil {
@@ -52,8 +56,7 @@ func RenderPDF(htmlContent, outPath string) error {
 		"--print-to-pdf=" + outPath,
 		"file://" + tmpPath,
 	}
-	cmd := exec.Command(chrome, args...)
-	if raw, err := cmd.CombinedOutput(); err != nil {
+	if raw, err := runChrome(chrome, args...); err != nil {
 		msg := strings.TrimSpace(string(raw))
 		if msg != "" {
 			return fmt.Errorf("chrome print failed: %w: %s", err, msg)
@@ -65,7 +68,11 @@ func RenderPDF(htmlContent, outPath string) error {
 	} else if info.IsDir() || info.Size() == 0 {
 		return fmt.Errorf("pdf was not written or is empty: %s", outPath)
 	}
-	return os.Chmod(outPath, privatefs.FileMode)
+	return privatefs.Restrict(outPath, privatefs.FileMode)
+}
+
+var runChrome = func(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).CombinedOutput()
 }
 
 func findChrome() (string, error) {

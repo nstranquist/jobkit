@@ -31,6 +31,10 @@
 - **Strict and concurrent state handling** — all YAML authorities reject
   unknown fields and trailing documents. Cross-platform file locks protect
   append-only event writes from concurrent processes.
+- **Cross-platform private state** — Unix uses `0700` directories and `0600`
+  files. Windows uses protected access-control lists for the current user.
+  Permission checks now validate the platform's real authorization model
+  instead of treating emulated POSIX mode bits as a Windows security boundary.
 - **Safe telemetry replacement** — a stable path lock now serializes telemetry
   audit and migration with append operations. Atomic replacement cannot discard
   an event that another JobKit process appends concurrently.

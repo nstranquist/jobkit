@@ -19,12 +19,12 @@ func TestPrivatePrimitivesUseRestrictiveModes(t *testing.T) {
 		path string
 		want os.FileMode
 	}{{root, DirMode}, {filepath.Join(root, "nested"), DirMode}, {path, FileMode}} {
-		info, err := os.Stat(item.path)
+		private, observed, err := Inspect(item.path, item.want)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := info.Mode().Perm(); got != item.want {
-			t.Fatalf("%s mode = %o, want %o", item.path, got, item.want)
+		if !private {
+			t.Fatalf("%s protection is not private (mode %o, want %o)", item.path, observed, item.want)
 		}
 	}
 	if err := WriteFile(path, []byte("two\n")); err != nil {

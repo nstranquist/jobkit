@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
 func TestCheckPermissionsReportsThenExplicitlyFixesLegacyState(t *testing.T) {
@@ -34,12 +36,12 @@ func TestCheckPermissionsReportsThenExplicitlyFixesLegacyState(t *testing.T) {
 		path string
 		want os.FileMode
 	}{{root, 0o700}, {filepath.Join(root, "out"), 0o700}, {path, 0o600}} {
-		info, err := os.Stat(item.path)
+		private, observed, err := privatefs.Inspect(item.path, item.want)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Mode().Perm() != item.want {
-			t.Fatalf("%s mode = %o, want %o", item.path, info.Mode().Perm(), item.want)
+		if !private {
+			t.Fatalf("%s protection is not private (mode %o, want %o)", item.path, observed, item.want)
 		}
 	}
 }

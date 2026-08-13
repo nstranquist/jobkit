@@ -22,6 +22,7 @@ These constraints drive the stack. Popularity alone is not a selection rule.
 | Optional AI | Argument arrays plus versioned JSON on standard input and output | Providers stay replaceable. JobKit does not invoke a shell, embed credentials, or make a model authoritative. | Provider SDKs would couple the core to vendors. Shell command strings would add injection and quoting risk. |
 | HTML parsing | `golang.org/x/net/html` | A standards-aware parser is safer than regular expressions for public job pages. | Regular-expression HTML parsing is brittle. A browser runtime is too heavy for the default fetch path. |
 | File locking | `golang.org/x/sys/unix` and `golang.org/x/sys/windows` | The Go standard library has no portable advisory file-lock API. A stable sidecar lock serializes JSONL appends and atomic replacement. | Process-local mutexes do not protect two JobKit processes. Silent unlocked writes can corrupt a ledger. |
+| Private local state | Unix mode bits and Windows access-control lists | Unix creates `0700` directories and `0600` files. Windows creates a protected access-control list for the current user. The permission doctor checks the platform's real authorization model. | POSIX mode bits do not describe Windows access control. A mode-only check can report a false failure or miss an unsafe Windows access-control list. |
 
 ## Dependency policy
 
@@ -41,6 +42,9 @@ Actions use exact commit pins and test Linux, macOS, and Windows.
   misspelled policy key from being accepted silently.
 - JSONL writers lock a stable sidecar file before one complete event is
   appended. Audit and migration use the same lock.
+- New state directories and files are private by default. Unix uses mode bits.
+  Windows uses protected access-control lists. Existing legacy state changes
+  only when the operator runs the explicit permission repair.
 - Coach scoring is deterministic and versioned by rubric. Provider feedback is
   advisory and cannot replace the score.
 - Provider commands have argument-count, argument-size, timeout, and output

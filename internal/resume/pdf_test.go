@@ -1,31 +1,33 @@
 package resume
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestRenderPDFUsesConfiguredChrome(t *testing.T) {
 	dir := t.TempDir()
 	chrome := filepath.Join(dir, "fake-chrome")
-	script := `#!/bin/sh
-out=""
-for arg in "$@"; do
-  case "$arg" in
-    --print-to-pdf=*) out="${arg#--print-to-pdf=}" ;;
-  esac
-done
-if [ -z "$out" ]; then
-  echo "missing pdf arg" >&2
-  exit 2
-fi
-printf '%s' '%PDF-1.4 fake' > "$out"
-`
-	if err := os.WriteFile(chrome, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(chrome, []byte("test chrome marker"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("JOBKIT_CHROME_BIN", chrome)
+	previous := runChrome
+	t.Cleanup(func() { runChrome = previous })
+	runChrome = func(name string, args ...string) ([]byte, error) {
+		if name != chrome {
+			t.Fatalf("chrome = %q, want %q", name, chrome)
+		}
+		for _, arg := range args {
+			if out, ok := strings.CutPrefix(arg, "--print-to-pdf="); ok {
+				return nil, os.WriteFile(out, []byte("%PDF-1.4 fake"), 0o600)
+			}
+		}
+		return nil, fmt.Errorf("missing pdf argument")
+	}
 
 	out := filepath.Join(dir, "resume.pdf")
 	if err := RenderPDF("<!doctype html><title>Resume</title>", out); err != nil {

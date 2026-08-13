@@ -15,10 +15,49 @@ const (
 )
 
 func EnsureDir(path string) error {
+	missing := make([]string, 0, 2)
+	for current := filepath.Clean(path); ; current = filepath.Dir(current) {
+		_, err := os.Stat(current)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("inspect private directory %s: %w", current, err)
+		}
+		missing = append(missing, current)
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+	}
 	if err := os.MkdirAll(path, DirMode); err != nil {
 		return fmt.Errorf("create private directory %s: %w", path, err)
 	}
+	for index := len(missing) - 1; index >= 0; index-- {
+		if err := Restrict(missing[index], DirMode); err != nil {
+			return fmt.Errorf("protect private directory %s: %w", missing[index], err)
+		}
+	}
 	return nil
+}
+
+// Restrict applies JobKit's private file or directory protection. Unix uses
+// mode bits. Windows uses a protected access-control list for the current user.
+func Restrict(path string, mode os.FileMode) error {
+	if mode != DirMode && mode != FileMode {
+		return fmt.Errorf("unsupported private mode %o", mode)
+	}
+	return restrictPath(path, mode)
+}
+
+// Inspect reports whether path has JobKit's private protection. The observed
+// mode is included for diagnostics; Windows authorization is decided by the
+// access-control list, not by emulated POSIX mode bits.
+func Inspect(path string, want os.FileMode) (private bool, observed os.FileMode, err error) {
+	if want != DirMode && want != FileMode {
+		return false, 0, fmt.Errorf("unsupported private mode %o", want)
+	}
+	return inspectPath(path, want)
 }
 
 // WriteFile atomically replaces path with a private regular file.
@@ -33,7 +72,7 @@ func WriteFile(path string, payload []byte) error {
 	}
 	tempPath := temp.Name()
 	defer os.Remove(tempPath)
-	if err := temp.Chmod(FileMode); err != nil {
+	if err := Restrict(tempPath, FileMode); err != nil {
 		temp.Close()
 		return err
 	}
@@ -51,7 +90,7 @@ func WriteFile(path string, payload []byte) error {
 	if err := os.Rename(tempPath, path); err != nil {
 		return err
 	}
-	return os.Chmod(path, FileMode)
+	return Restrict(path, FileMode)
 }
 
 // AppendFile holds the stable path lock for an append-only ledger until Close.
@@ -82,7 +121,7 @@ func OpenAppend(path string) (*AppendFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, FileMode)
+	file, err := openPrivateFile(path, os.O_APPEND|os.O_WRONLY)
 	if err != nil {
 		_ = pathLock.Close()
 		return nil, err
@@ -92,12 +131,12 @@ func OpenAppend(path string) (*AppendFile, error) {
 
 // WithPathLock serializes a complete read-modify-replace transaction with
 // OpenAppend. The callback must not call OpenAppend for the same path.
-func WithPathLock(path string, run func() error) error {
+func WithPathLock(path string, run func() error) (err error) {
 	pathLock, err := openPathLock(path)
 	if err != nil {
 		return err
 	}
-	defer pathLock.Close()
+	defer func() { err = errors.Join(err, pathLock.Close()) }()
 	return run()
 }
 
@@ -106,7 +145,7 @@ func openPathLock(path string) (*os.File, error) {
 		return nil, err
 	}
 	lockPath := path + ".lock"
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, FileMode)
+	file, err := openPrivateFile(lockPath, os.O_RDWR)
 	if err != nil {
 		return nil, err
 	}
@@ -115,4 +154,21 @@ func openPathLock(path string) (*os.File, error) {
 		return nil, fmt.Errorf("lock private path %s: %w", path, err)
 	}
 	return file, nil
+}
+
+// openPrivateFile creates a new private file without changing the protection
+// of an existing legacy file. The permission doctor owns explicit repair.
+func openPrivateFile(path string, flags int) (*os.File, error) {
+	file, err := os.OpenFile(path, flags|os.O_CREATE|os.O_EXCL, FileMode)
+	if err == nil {
+		if protectErr := Restrict(path, FileMode); protectErr != nil {
+			_ = file.Close()
+			return nil, protectErr
+		}
+		return file, nil
+	}
+	if !errors.Is(err, os.ErrExist) {
+		return nil, err
+	}
+	return os.OpenFile(path, flags, FileMode)
 }

@@ -117,10 +117,14 @@ func CheckPermissions(fix bool) (PermissionReport, error) {
 			kind = "directory"
 			want = privatefs.DirMode
 		}
-		if info.Mode().Perm() != want {
-			report.Issues = append(report.Issues, PermissionIssue{Path: path, Kind: kind, Mode: uint32(info.Mode().Perm()), Want: uint32(want)})
+		private, observed, err := privatefs.Inspect(path, want)
+		if err != nil {
+			return err
+		}
+		if !private {
+			report.Issues = append(report.Issues, PermissionIssue{Path: path, Kind: kind, Mode: uint32(observed), Want: uint32(want)})
 			if fix {
-				if err := os.Chmod(path, want); err != nil {
+				if err := privatefs.Restrict(path, want); err != nil {
 					return err
 				}
 			}
