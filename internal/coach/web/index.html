@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JobKit Coach</title>
+  <link rel="stylesheet" href="/assets/coach.css">
+  <script src="/assets/coach.js" defer></script>
+</head>
+<body><main>
+  <p class="meta">LOCALHOST ONLY · EVIDENCE-LINKED PRACTICE</p>
+  <h1>JobKit Coach</h1>
+  <p class="lead">Practice project, behavioral, system-design, and claim-defense answers. Deterministic scoring remains authoritative.</p>
+  <section class="toolbar">
+    <label>Practice deck<select id="deck"></select></label>
+    <label>Advisory feedback<select id="provider"><option value="none">Deterministic score only</option></select></label>
+    <button id="load">Load deck</button>
+    <button id="stats" class="secondary">View stats</button>
+  </section>
+  <p id="status" class="status" aria-live="polite"></p>
+  <section id="workspace"></section>
+  <section id="result"></section>
+</main></body>
+</html>

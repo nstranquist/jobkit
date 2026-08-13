@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/nstranquist/jobkit/internal/privatefs"
-	"gopkg.in/yaml.v3"
+	"github.com/nstranquist/jobkit/internal/strictyaml"
 )
 
 //go:embed template.yaml
@@ -87,7 +87,7 @@ func Load(path string) (*Profile, error) {
 		return nil, err
 	}
 	var p Profile
-	if err := yaml.Unmarshal(raw, &p); err != nil {
+	if err := strictyaml.Unmarshal(raw, &p); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if errs := p.Validate(); len(errs) > 0 {

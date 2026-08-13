@@ -14,7 +14,7 @@ import (
 
 	"github.com/nstranquist/jobkit/internal/jd"
 	"github.com/nstranquist/jobkit/internal/privatefs"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type BootstrapOptions struct {

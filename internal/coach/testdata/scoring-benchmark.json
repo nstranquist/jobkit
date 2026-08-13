@@ -1,0 +1,41 @@
+{
+  "rubric_version": "1.0.0",
+  "cases": [
+    {
+      "name": "structured evidence-linked answer",
+      "mode": "behavioral",
+      "expected_concepts": ["latency", "rollback"],
+      "role_keywords": ["go"],
+      "time_seconds": 120,
+      "answer": "Situation: latency threatened the release. Task: I owned the Go service decision. Action: I measured the bottleneck and chose a staged rollout because rollback reduced risk. Result: the verified result met the allowed boundary.",
+      "allowed_claims": [],
+      "minimum_score": 75,
+      "maximum_score": 100,
+      "claim_violations": 0
+    },
+    {
+      "name": "unsupported quantified claim is capped",
+      "mode": "claim-defense",
+      "expected_concepts": ["measurement", "boundary"],
+      "role_keywords": ["go"],
+      "time_seconds": 120,
+      "answer": "I improved the Go system for 50,000 users. The source and contribution boundary were measured.",
+      "allowed_claims": [],
+      "minimum_score": 0,
+      "maximum_score": 59,
+      "claim_violations": 1
+    },
+    {
+      "name": "empty answer remains honest practice data",
+      "mode": "system-design",
+      "expected_concepts": ["queue", "backpressure"],
+      "role_keywords": ["distributed"],
+      "time_seconds": 300,
+      "answer": "",
+      "allowed_claims": [],
+      "minimum_score": 20,
+      "maximum_score": 20,
+      "claim_violations": 0
+    }
+  ]
+}

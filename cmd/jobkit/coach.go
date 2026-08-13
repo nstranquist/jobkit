@@ -395,9 +395,12 @@ func cmdCoachServe(c *cli) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	fmt.Printf("JobKit Coach: http://%s\n", addr)
-	fmt.Println("Press Ctrl-C to stop. The server accepts loopback addresses only.")
-	server := &coach.Server{Store: store, Providers: cfg}
+	server, err := coach.NewServer(store, cfg)
+	if err != nil {
+		return envelope.New(envelope.CodeInternal, err.Error())
+	}
+	fmt.Printf("JobKit Coach: %s\n", server.AccessURL(addr))
+	fmt.Println("Press Ctrl-C to stop. The server accepts loopback addresses only and requires its ephemeral access token.")
 	if err := server.Serve(ctx, addr); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}

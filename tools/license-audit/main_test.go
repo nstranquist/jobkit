@@ -3,8 +3,8 @@ package main
 import "testing"
 
 func TestApprovedDependencySetIsExplicit(t *testing.T) {
-	if len(approved) != 2 {
-		t.Fatalf("approved dependency count = %d, want 2", len(approved))
+	if len(approved) != 3 {
+		t.Fatalf("approved dependency count = %d, want 3", len(approved))
 	}
 	for path, license := range approved {
 		if license.Version == "" || license.Expression == "" || len(license.SHA256) != 64 {

@@ -12,6 +12,9 @@ import (
 	"github.com/nstranquist/jobkit/internal/claims"
 )
 
+// RubricVersion changes when deterministic scoring semantics change.
+const RubricVersion = "1.0.0"
+
 type Answer struct {
 	QuestionID string `json:"question_id"`
 	Text       string `json:"text"`
@@ -47,6 +50,7 @@ type ProviderFeedback struct {
 
 type Session struct {
 	SchemaVersion   int               `json:"schema_version"`
+	RubricVersion   string            `json:"rubric_version"`
 	ID              string            `json:"id"`
 	DeckID          string            `json:"deck_id"`
 	StartedAt       time.Time         `json:"started_at"`
@@ -132,6 +136,7 @@ func Evaluate(deck *Deck, bundle *SourceBundle, answers []Answer, started, compl
 	next := completed.Add(reviewInterval(total, violationCount))
 	session := &Session{
 		SchemaVersion: SchemaVersion,
+		RubricVersion: RubricVersion,
 		DeckID:        deck.ID, StartedAt: started.UTC(), CompletedAt: completed.UTC(),
 		Answers: answers, Results: results, Score: total,
 		ClaimViolations: violationCount, NextReviewAt: next.UTC(),

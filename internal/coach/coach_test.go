@@ -302,8 +302,9 @@ func TestServerScoresSessionsAndRejectsPublicBind(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions", bytes.NewReader(payload))
 	req.Host = "127.0.0.1:7331"
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
-	(&Server{Store: store}).Handler().ServeHTTP(rec, req)
+	(&Server{Store: store, Token: "test-token"}).Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
@@ -317,7 +318,7 @@ func TestServerConfigListsAdvisoryProvidersInStableOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &Server{Store: store, Providers: &ProviderConfig{
+	server := &Server{Store: store, Token: "test-token", Providers: &ProviderConfig{
 		SchemaVersion: SchemaVersion,
 		Providers: map[string]Command{
 			"ndev-openai-hosted": {Argv: []string{"adapter"}},
@@ -326,6 +327,7 @@ func TestServerConfigListsAdvisoryProvidersInStableOrder(t *testing.T) {
 	}}
 	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
 	req.Host = "localhost:7331"
+	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -343,7 +345,7 @@ func TestServerConfigListsAdvisoryProvidersInStableOrder(t *testing.T) {
 }
 
 func TestServerRejectsDNSRebindingAndCrossOriginWrites(t *testing.T) {
-	server := (&Server{}).Handler()
+	server := (&Server{Token: "test-token"}).Handler()
 	for _, test := range []struct {
 		host   string
 		origin string
@@ -364,5 +366,44 @@ func TestServerRejectsDNSRebindingAndCrossOriginWrites(t *testing.T) {
 	}
 	if !loopbackHost("[::1]:7331") || loopbackHost("127.0.0.1.evil.example:7331") {
 		t.Fatal("loopback host classification failed")
+	}
+}
+
+func TestServerRequiresTokenAndBootstrapsHttpOnlyCookie(t *testing.T) {
+	server := (&Server{Token: "test-token"}).Handler()
+	unauthorized := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	unauthorized.Host = "localhost:7331"
+	unauthorizedResponse := httptest.NewRecorder()
+	server.ServeHTTP(unauthorizedResponse, unauthorized)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d", unauthorizedResponse.Code)
+	}
+
+	bootstrap := httptest.NewRequest(http.MethodGet, "/?token=test-token", nil)
+	bootstrap.Host = "localhost:7331"
+	bootstrapResponse := httptest.NewRecorder()
+	server.ServeHTTP(bootstrapResponse, bootstrap)
+	if bootstrapResponse.Code != http.StatusSeeOther {
+		t.Fatalf("bootstrap status = %d", bootstrapResponse.Code)
+	}
+	cookies := bootstrapResponse.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("bootstrap cookies = %#v", cookies)
+	}
+
+	index := httptest.NewRequest(http.MethodGet, "/", nil)
+	index.Host = "localhost:7331"
+	index.AddCookie(cookies[0])
+	indexResponse := httptest.NewRecorder()
+	server.ServeHTTP(indexResponse, index)
+	if indexResponse.Code != http.StatusOK {
+		t.Fatalf("index status = %d", indexResponse.Code)
+	}
+	csp := indexResponse.Header().Get("Content-Security-Policy")
+	if strings.Contains(csp, "unsafe-inline") || !strings.Contains(csp, "script-src 'self'") {
+		t.Fatalf("CSP = %q", csp)
+	}
+	if strings.Contains(indexResponse.Body.String(), "<script>") || strings.Contains(indexResponse.Body.String(), "<style>") {
+		t.Fatal("index contains inline executable assets")
 	}
 }

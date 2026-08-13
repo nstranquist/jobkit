@@ -12,7 +12,7 @@ make publish-ready # full publication gate (verify + gitleaks)
 make demo          # isolated JOBKIT_HOME; never reads ~/.jobkit
 ```
 
-Requires Go 1.22+ (CI pins 1.26).
+Requires Go 1.26.5. CI tests Linux, macOS, and Windows with that patch release.
 
 ## Agent-friendly contract
 

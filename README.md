@@ -103,14 +103,17 @@ Deterministic scoring is authoritative. An unsupported quantified claim caps
 the answer below 60 and schedules it for review in one day. Optional provider
 commands receive JSON on standard input and return advisory JSON on standard
 output. JobKit executes configured argument arrays directly, without a shell.
-The ndev bridge creates a local Ollama adapter and clearly named hosted Gemini
+Provider argument count, argument size, runtime, and output are bounded. Stored
+provider failures contain an exit code, not raw provider error text. The ndev bridge creates a local Ollama adapter and clearly named hosted Gemini
 and OpenAI adapters. Selecting a hosted adapter is an explicit data boundary:
 it sends the practice request and answer text to that provider.
 
-`jobkit coach serve` accepts loopback addresses only. The web UI uses the same
-deck, scoring, session, feedback, and statistics contracts as the CLI. A
-configured local transcriber adds microphone answers without sending audio
-through JobKit.
+`jobkit coach serve` accepts loopback addresses only. It prints a URL with an
+ephemeral access token, exchanges that token for a protected local cookie, and
+enforces host, origin, and content-security checks. The web UI uses the same
+deck, versioned rubric, scoring, session, feedback, and statistics contracts as
+the CLI. A configured local transcriber adds microphone answers without
+sending audio through JobKit.
 
 `track add` and `track set` accept a nicos-resume package receipt through
 `--resume-manifest`. JobKit rejects candidate/history manifests, incomplete or
@@ -129,13 +132,16 @@ skipped, or archived inbox item back to `planned`.
 Local publication gate (no remote push):
 
 ```sh
-make publish-ready   # race + publication + optional ClaimGuard bridge
+make publish-ready   # race + publication + optional verified-claims bridge
 make demo            # isolated JOBKIT_HOME; uses examples/ only
 ```
 
 `make verify` runs gofmt, the test suite, `go vet`, and the deterministic
 dependency license audit. `make publish-ready` additionally runs the race
-suite, history/tree secret scans, and the optional ClaimGuard bridge. The
+suite, a reachable-code vulnerability scan, history/tree secret scans, and the
+optional verified-claims bridge. The bridge prefers the maintained
+`agent-ops claims check` surface and uses the deprecated standalone
+`claimguard` binary only as a compatibility fallback. The
 license audit fails closed if a compiled non-standard dependency is not
 allowlisted or if its upstream license text changes.
 `LICENSE` covers Nico-authored JobKit code; `THIRD_PARTY_NOTICES.md` records
@@ -183,6 +189,9 @@ Environment:
 
 ## Design notes
 
+The complete stack rationale and revisit triggers are in
+[`docs/architecture.md`](docs/architecture.md).
+
 - **The profile is the database.** Skills carry levels/years/aliases; bullets
   carry tags. Match evidence is three-tiered: declared skill > bullet tag >
   free-text mention — and the gap report tells you when to promote one. The
@@ -190,8 +199,12 @@ Environment:
   [`contracts/profile/`](contracts/profile/); consumers validate the synthetic
   fixture instead of importing JobKit's internal Go package.
 - **The ledger is history.** `applications.jsonl` and `contacts.jsonl` are
-  append-only; state is a replay. Nothing is ever rewritten, so the funnel,
-  follow-up, and referral trails are auditable.
+  append-only; state is a replay. Cross-process file locks keep each appended
+  event intact, so the funnel, follow-up, and referral trails are auditable.
+- **Telemetry is bounded.** Schema v2 stores an allowlisted command identity,
+  outcome, duration, and typed error only. Run `jobkit doctor telemetry` to
+  count current, legacy, and invalid rows. Run it again with `--migrate` only
+  after reviewing the count; migration removes legacy arguments and raw errors.
 - **Hidden market means dated signals.** `companies.yaml` is intentionally
   human-editable: public ATS boards, target compensation, tags, and hiring
   signals combine into a next-action score so outreach can happen before a
@@ -232,8 +245,11 @@ internal/match/      gap scoring + advice
 internal/resume/     tailoring + md/txt/html renderers
 internal/letter/     deterministic cover-letter drafts
 internal/prep/       interview-prep sheet generator
+internal/coach/      evidence source, rubric scoring, providers, and localhost UI
 internal/track/      append-only application ledger + stats
 internal/telemetry/  per-run JSONL telemetry (best-effort)
+internal/strictyaml/ strict single-document YAML decoder
+internal/privatefs/ private atomic writes and cross-process append locks
 internal/envelope/   {ok, data|error} JSON contract
 internal/home/       ~/.jobkit state-dir resolution
 ```

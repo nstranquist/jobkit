@@ -19,7 +19,8 @@ import (
 	"strings"
 
 	"github.com/nstranquist/jobkit/internal/privatefs"
-	"gopkg.in/yaml.v3"
+	"github.com/nstranquist/jobkit/internal/strictyaml"
+	"go.yaml.in/yaml/v3"
 )
 
 // File is the on-disk allowlist.
@@ -127,12 +128,16 @@ func Check(text string, allowed []string) []Violation {
 	return out
 }
 
-// containsToken reports whether allowed contains token at digit boundaries:
-// the characters immediately before and after the match must not extend the
-// number, so an allowed "133%" never covers a claimed "33%" and an allowed
-// "10000" never covers a claimed "1000".
+// containsToken reports whether allowed contains the same quantified shape at
+// claim boundaries. Money, percentages, magnitude suffixes, and lower bounds
+// extend the token, so "$100", "100%", "100k", "100+", and bare "100" do not
+// authorize one another. Check handles the deliberate lower-bound entailment
+// separately through plusVariant.
 func containsToken(allowed, token string) bool {
 	isDigit := func(b byte) bool { return b >= '0' && b <= '9' }
+	isShapeSuffix := func(b byte) bool {
+		return b == '%' || b == '+' || b == 'k' || b == 'm' || b == 'b'
+	}
 	for from := 0; ; {
 		i := strings.Index(allowed[from:], token)
 		if i < 0 {
@@ -140,9 +145,9 @@ func containsToken(allowed, token string) bool {
 		}
 		at := from + i
 		end := at + len(token)
-		beforeOK := at == 0 || (!isDigit(allowed[at-1]) && allowed[at-1] != '.')
+		beforeOK := at == 0 || (!isDigit(allowed[at-1]) && allowed[at-1] != '.' && allowed[at-1] != '$')
 		afterOK := end >= len(allowed) ||
-			(!isDigit(allowed[end]) && !(allowed[end] == '.' && end+1 < len(allowed) && isDigit(allowed[end+1])))
+			(!isDigit(allowed[end]) && !isShapeSuffix(allowed[end]) && !(allowed[end] == '.' && end+1 < len(allowed) && isDigit(allowed[end+1])))
 		if beforeOK && afterOK {
 			return true
 		}
@@ -175,7 +180,7 @@ func Load(path string) (*File, error) {
 		return nil, err
 	}
 	var f File
-	if err := yaml.Unmarshal(raw, &f); err != nil {
+	if err := strictyaml.Unmarshal(raw, &f); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return &f, nil

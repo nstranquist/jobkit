@@ -1,14 +1,14 @@
 BIN := jobkit
 INSTALL_DIR := $(HOME)/.local/bin
 
-.PHONY: help build test test-race vet fmt license-check verify verify-publication publish-ready claimguard-bridge install demo clean help-sizes
+.PHONY: help build test test-race vet fmt license-check vulnerability-check verify verify-publication publish-ready claimguard-bridge install demo clean help-sizes
 
 help:
 	@echo "jobkit local targets:"
 	@echo "  make build | test | test-race | vet | fmt"
 	@echo "  make verify                 # test + vet + license-check"
 	@echo "  make verify-publication     # verify + gitleaks (history + tree)"
-	@echo "  make publish-ready          # publication + race + optional ClaimGuard bridge"
+	@echo "  make publish-ready          # publication + race + vulnerability + ClaimGuard fixtures"
 	@echo "  make claimguard-bridge      # optional external claimguard dogfood"
 	@echo "  make install | demo | clean"
 
@@ -35,6 +35,9 @@ fmt:
 license-check:
 	go run ./tools/license-audit
 
+vulnerability-check:
+	go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+
 verify: fmt test vet license-check
 
 verify-publication: verify
@@ -42,11 +45,11 @@ verify-publication: verify
 	gitleaks dir --no-banner --redact .
 
 # Local publication gate (no remote push). claimguard-bridge is optional skip-if-missing.
-publish-ready: test-race verify-publication claimguard-bridge
+publish-ready: test-race verify-publication vulnerability-check claimguard-bridge
 
 .PHONY: claimguard-bridge
 claimguard-bridge:
-	bash scripts/claimguard-bridge.sh
+	go run ./tools/claimguard-bridge
 
 help-sizes: build
 	@full=$$(./bin/jobkit help | wc -c | tr -d ' '); \

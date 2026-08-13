@@ -2,6 +2,9 @@ package coach
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,18 +20,41 @@ import (
 type Server struct {
 	Store     *Store
 	Providers *ProviderConfig
+	Token     string
+}
+
+// NewServer creates a Coach server with an ephemeral access token.
+func NewServer(store *Store, providers *ProviderConfig) (*Server, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, fmt.Errorf("create coach access token: %w", err)
+	}
+	return &Server{
+		Store: store, Providers: providers,
+		Token: base64.RawURLEncoding.EncodeToString(tokenBytes),
+	}, nil
+}
+
+// AccessURL returns the one-time bootstrap URL printed to the local terminal.
+// The handler exchanges the query token for an HttpOnly same-site cookie and
+// redirects to a clean URL.
+func (s *Server) AccessURL(addr string) string {
+	return "http://" + addr + "/?token=" + url.QueryEscape(s.Token)
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.handleIndex)
+	mux.HandleFunc("GET /assets/coach.css", serveEmbedded("text/css; charset=utf-8", coachCSS))
+	mux.HandleFunc("GET /assets/coach.js", serveEmbedded("text/javascript; charset=utf-8", coachJS))
+	mux.HandleFunc("GET /assets/audio-worklet.js", serveEmbedded("text/javascript; charset=utf-8", audioWorkletJS))
 	mux.HandleFunc("GET /api/config", s.handleConfig)
 	mux.HandleFunc("GET /api/decks", s.handleDecks)
 	mux.HandleFunc("GET /api/decks/{id}", s.handleDeck)
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("POST /api/sessions", s.handleSession)
 	mux.HandleFunc("POST /api/transcribe", s.handleTranscribe)
-	return securityHeaders(localRequestBoundary(mux))
+	return securityHeaders(localRequestBoundary(s.authBoundary(mux)))
 }
 
 func (s *Server) Serve(ctx context.Context, addr string) error {
@@ -80,12 +106,55 @@ func validateLoopbackAddress(addr string) error {
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) authBoundary(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		queryToken := r.URL.Query().Get("token")
+		if queryToken != "" {
+			if r.Method != http.MethodGet || r.URL.Path != "/" || !sameToken(queryToken, s.Token) {
+				writeAPIError(w, http.StatusUnauthorized, fmt.Errorf("invalid coach access token"))
+				return
+			}
+			http.SetCookie(w, &http.Cookie{
+				Name: "jobkit_coach", Value: s.Token, Path: "/", HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+			})
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		token := strings.TrimPrefix(strings.TrimSpace(r.Header.Get("Authorization")), "Bearer ")
+		if token == "" {
+			if cookie, err := r.Cookie("jobkit_coach"); err == nil {
+				token = cookie.Value
+			}
+		}
+		if !sameToken(token, s.Token) {
+			writeAPIError(w, http.StatusUnauthorized, fmt.Errorf("coach access token is required"))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func sameToken(got, want string) bool {
+	if got == "" || want == "" || len(got) != len(want) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
+}
+
+func serveEmbedded(contentType, body string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", contentType)
+		_, _ = io.WriteString(w, body)
+	}
 }
 
 // localRequestBoundary rejects DNS-rebinding hosts. Browser writes must also
@@ -129,7 +198,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = io.WriteString(w, indexHTML)
+	_, _ = io.WriteString(w, coachIndexHTML)
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
@@ -275,52 +344,3 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
 }
-
-const indexHTML = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>JobKit Coach</title>
-  <style>
-    :root{color-scheme:dark;--bg:#0b1020;--panel:#141b30;--line:#2d3858;--text:#edf2ff;--muted:#aeb9d4;--accent:#7dd3fc;--good:#86efac}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#192445,var(--bg) 42%);color:var(--text);font:16px/1.55 ui-sans-serif,system-ui;min-height:100vh}
-    main{max-width:920px;margin:auto;padding:32px 20px 80px}h1{font-size:clamp(2rem,5vw,3.5rem);margin:.2rem 0}h2{margin-top:2rem}.lead,.meta{color:var(--muted)}
-    .toolbar,.card{background:color-mix(in srgb,var(--panel) 94%,transparent);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0;box-shadow:0 18px 50px #0005}
-    .toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:grid;gap:6px;flex:1;min-width:220px}select,textarea,button{font:inherit}select,textarea{color:var(--text);background:#0c1327;border:1px solid var(--line);border-radius:10px;padding:10px}textarea{width:100%;min-height:150px;resize:vertical}
-    button{border:0;border-radius:10px;padding:10px 15px;background:var(--accent);color:#082032;font-weight:750;cursor:pointer}button.secondary{background:#263453;color:var(--text)}button:disabled{opacity:.45;cursor:not-allowed}
-    .question{margin:26px 0}.prompt{font-size:1.1rem;font-weight:700}.rubric{font-size:.9rem;color:var(--muted)}.result{border-left:4px solid var(--good);padding-left:14px}.hidden{display:none}.status{min-height:1.5em;color:var(--muted)}code{color:var(--accent)}
-  </style>
-</head>
-<body><main>
-  <p class="meta">LOCALHOST ONLY · EVIDENCE-LINKED PRACTICE</p>
-  <h1>JobKit Coach</h1>
-  <p class="lead">Practice project, behavioral, system-design, and claim-defense answers. Deterministic scoring remains authoritative.</p>
-  <section class="toolbar">
-    <label>Practice deck<select id="deck"></select></label>
-    <label>Advisory feedback<select id="provider"><option value="none">Deterministic score only</option></select></label>
-    <button id="load">Load deck</button>
-    <button id="stats" class="secondary">View stats</button>
-  </section>
-  <p id="status" class="status" aria-live="polite"></p>
-  <section id="workspace"></section>
-  <section id="result"></section>
-</main>
-<script>
-const deckSelect=document.querySelector('#deck'),providerSelect=document.querySelector('#provider'),workspace=document.querySelector('#workspace'),result=document.querySelector('#result'),statusEl=document.querySelector('#status');
-let currentDeck=null,canTranscribe=false,recording=null;
-function status(text){statusEl.textContent=text}
-async function api(path,options={}){const response=await fetch(path,options);const body=await response.json();if(!response.ok)throw new Error(body.error?.message||response.statusText);return body}
-async function boot(){const [decks,config]=await Promise.all([api('/api/decks'),api('/api/config')]);canTranscribe=config.transcription_available;deckSelect.replaceChildren(...decks.decks.map(d=>new Option(d.role+' · '+d.mode+' · '+d.minutes+' min',d.id)));providerSelect.append(...(config.providers||[]).map(name=>new Option(name,name)));if(!decks.decks.length)status('Create a deck with jobkit coach deck, then reload this page.')}
-function text(tag,value,className){const node=document.createElement(tag);node.textContent=value;if(className)node.className=className;return node}
-async function loadDeck(){if(!deckSelect.value)return;currentDeck=await api('/api/decks/'+encodeURIComponent(deckSelect.value));workspace.replaceChildren();result.replaceChildren();workspace.append(text('h2',currentDeck.role+' practice'));workspace.append(text('p',currentDeck.questions.length+' questions · '+currentDeck.minutes+' minutes · '+currentDeck.mode,'meta'));
-  currentDeck.questions.forEach((q,index)=>{const card=document.createElement('article');card.className='card question';card.append(text('p',(index+1)+'. '+q.prompt,'prompt'));card.append(text('p','Target: '+Math.round(q.time_seconds/60)+' minutes · Evidence: '+((q.evidence_ids||[]).join(', ')||'source bundle'),'rubric'));const area=document.createElement('textarea');area.id='answer-'+q.id;area.placeholder='Type your answer. Name decisions, tradeoffs, evidence, and boundaries.';card.append(area);if(canTranscribe){const record=document.createElement('button');record.className='secondary';record.textContent='Record answer';record.addEventListener('click',()=>toggleRecord(record,area).catch(e=>status(e.message)));card.append(record)}workspace.append(card)});
-  const submit=document.createElement('button');submit.textContent='Score session';submit.addEventListener('click',()=>scoreSession().catch(e=>status(e.message)));workspace.append(submit);status('Deck loaded. Raw answers stay in your local JobKit state.')}
-async function scoreSession(){const provider=providerSelect.value;if(provider.endsWith('-hosted')&&!window.confirm('Send this practice request and your answer text to '+provider+'?')){status('Hosted feedback canceled. Your answers were not submitted.');return}const answers=currentDeck.questions.map(q=>({question_id:q.id,text:document.querySelector('#answer-'+q.id).value}));status('Scoring session…');const session=await api('/api/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deck_id:currentDeck.id,answers,provider})});result.replaceChildren();const card=document.createElement('article');card.className='card result';card.append(text('h2','Score '+session.score+'/100'));card.append(text('p',session.claim_violations+' claim violations · next review '+new Date(session.next_review_at).toLocaleDateString()));session.results.forEach(row=>card.append(text('p',row.question_id+': '+row.score.total+'/100 · missing '+((row.missing_concepts||[]).join(', ')||'none'))));if(session.feedback)card.append(text('p','Advisory feedback ('+session.feedback.provider+'): '+session.feedback.summary));if(session.provider_error)card.append(text('p','Advisory provider unavailable: '+session.provider_error,'meta'));result.append(card);status('Session saved locally.')}
-async function showStats(){const report=await api('/api/stats');workspace.replaceChildren();result.replaceChildren();const card=document.createElement('article');card.className='card';card.append(text('h2','Practice stats'));card.append(text('p',report.sessions+' sessions · average '+(report.average_score||0)+'/100 · '+report.due_reviews+' due reviews'));Object.entries(report.by_project||{}).forEach(([name,band])=>card.append(text('p',name+': '+band.average+'/100 across '+band.answers+' answers')));workspace.append(card);status('Stats use append-only local sessions.')}
-async function toggleRecord(button,area){if(recording){if(recording.button!==button){status('Stop the current recording before you record another answer.');return}button.disabled=true;const wav=await stopRecording();status('Transcribing local audio…');try{const response=await api('/api/transcribe',{method:'POST',headers:{'Content-Type':'audio/wav'},body:wav});area.value=(area.value+' '+response.text).trim();status('Local transcript added.')}finally{button.disabled=false;button.textContent='Record answer'}return}recording=await startRecording();recording.button=button;button.textContent='Stop and transcribe';status('Recording on this device…')}
-async function startRecording(){const stream=await navigator.mediaDevices.getUserMedia({audio:true});const context=new AudioContext();const source=context.createMediaStreamSource(stream);const processor=context.createScriptProcessor(4096,1,1);const chunks=[];processor.onaudioprocess=e=>chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));const mute=context.createGain();mute.gain.value=0;source.connect(processor);processor.connect(mute);mute.connect(context.destination);return{stream,context,source,processor,chunks,sampleRate:context.sampleRate}}
-async function stopRecording(){const state=recording;recording=null;state.processor.disconnect();state.source.disconnect();state.stream.getTracks().forEach(t=>t.stop());await state.context.close();let size=state.chunks.reduce((n,c)=>n+c.length,0),samples=new Float32Array(size),offset=0;state.chunks.forEach(c=>{samples.set(c,offset);offset+=c.length});return encodeWav(samples,state.sampleRate)}
-function encodeWav(samples,rate){const buffer=new ArrayBuffer(44+samples.length*2),view=new DataView(buffer);const word=(o,s)=>[...s].forEach((c,i)=>view.setUint8(o+i,c.charCodeAt(0)));word(0,'RIFF');view.setUint32(4,36+samples.length*2,true);word(8,'WAVE');word(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);word(36,'data');view.setUint32(40,samples.length*2,true);samples.forEach((s,i)=>view.setInt16(44+i*2,Math.max(-1,Math.min(1,s))*0x7fff,true));return new Blob([buffer],{type:'audio/wav'})}
-document.querySelector('#load').addEventListener('click',()=>loadDeck().catch(e=>status(e.message));document.querySelector('#stats').addEventListener('click',()=>showStats().catch(e=>status(e.message));boot().catch(e=>status(e.message));
-</script></body></html>`

@@ -15,8 +15,9 @@ import (
 	"github.com/nstranquist/jobkit/internal/inbox"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
 	"github.com/nstranquist/jobkit/internal/privatefs"
+	"github.com/nstranquist/jobkit/internal/strictyaml"
 	"github.com/nstranquist/jobkit/internal/track"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type Config struct {
@@ -83,7 +84,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	var cfg Config
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+	if err := strictyaml.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	cfg.Weights = jobsearch.NormalizeOpportunityWeights(cfg.Weights)

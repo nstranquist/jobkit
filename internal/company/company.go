@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/nstranquist/jobkit/internal/privatefs"
-	"gopkg.in/yaml.v3"
+	"github.com/nstranquist/jobkit/internal/strictyaml"
+	"go.yaml.in/yaml/v3"
 )
 
 type Config struct {
@@ -57,7 +58,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	var cfg Config
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
+	if err := strictyaml.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	normalize(&cfg)

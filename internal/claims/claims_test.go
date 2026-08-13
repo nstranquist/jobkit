@@ -120,6 +120,26 @@ func TestCheckPlusEntailment(t *testing.T) {
 	}
 }
 
+func TestCheckDoesNotCrossQuantifiedClaimShapes(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		allowed string
+	}{
+		{name: "percent does not allow bare count", text: "served 100 users", allowed: "reviewed 100% uptime"},
+		{name: "money does not allow bare count", text: "served 100 users", allowed: "reviewed $100 cost"},
+		{name: "magnitude does not allow bare count", text: "served 100 users", allowed: "reviewed 100k users"},
+		{name: "bare count does not allow percentage", text: "reached 100% uptime", allowed: "reviewed 100 users"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if violations := Check(test.text, []string{test.allowed}); len(violations) != 1 {
+				t.Fatalf("violations = %+v, want one shape mismatch", violations)
+			}
+		})
+	}
+}
+
 func TestBootstrapDedupes(t *testing.T) {
 	entries := Bootstrap("serving 1,000+ developers", "again 1,000+ developers", "and 33% faster")
 	if len(entries) != 2 {

@@ -36,9 +36,15 @@ analysis, tailored materials, interview preparation, application tracking,
 follow-ups, and outcome calibration. The full Go test suite, vet, clean-copy
 build, full-history secret scan, and dependency-license audit pass locally.
 
+The interview Coach adds versioned, deterministic scoring over reviewed public
+project evidence. Optional model feedback stays advisory. The localhost UI is
+token-protected, and private answers remain outside the repository. See
+`docs/architecture.md` for the stack and security decisions.
+
 ## Evidence boundary
 
-The source is prepared for a future MIT-licensed repository owned by
-`nstranquist`, but no public repository or CI is claimed yet. Real candidate
-profiles, applications, contacts, trackers, and generated packages remain
-private under `~/.jobkit` and are not publication inputs.
+The MIT repository and v0.8.0 tag are public under `nstranquist`. The v0.9.0
+changes described here are verified only in the local worktree until a human
+pushes them and public CI passes. Real candidate profiles, applications,
+contacts, trackers, answers, telemetry, and generated packages remain private
+under `~/.jobkit` and are not publication inputs.

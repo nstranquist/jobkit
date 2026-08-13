@@ -20,6 +20,31 @@
 - **Provider selection in the localhost UI** — configured advisory providers
   are available beside the deck selector. Provider errors stay supplemental
   and never replace the deterministic score.
+- **Authenticated localhost UI** — the server creates an ephemeral access
+  token, exchanges it for a protected local cookie, validates host and origin,
+  and serves embedded assets under a restrictive content security policy.
+- **Versioned scoring proof** — sessions record rubric `1.0.0`; statistics keep
+  rubric versions separate; benchmark fixtures detect scoring drift.
+- **Privacy-bounded telemetry** — schema v2 stores allowlisted command IDs and
+  typed errors only. `jobkit doctor telemetry` audits counts, and `--migrate`
+  explicitly removes legacy arguments and raw errors.
+- **Strict and concurrent state handling** — all YAML authorities reject
+  unknown fields and trailing documents. Cross-platform file locks protect
+  append-only event writes from concurrent processes.
+- **Safe telemetry replacement** — a stable path lock now serializes telemetry
+  audit and migration with append operations. Atomic replacement cannot discard
+  an event that another JobKit process appends concurrently.
+- **Exact claim shapes** — money, percentages, magnitude values, lower bounds,
+  and bare counts no longer authorize one another when their digits match.
+- **Dependency and CI hardening** — Go 1.26.5, maintained YAML v3, exact action
+  pins, Linux/macOS/Windows tests, reachable-code vulnerability scanning, and
+  a three-module fail-closed license allowlist.
+- **Bounded provider execution** — provider argument and output sizes are
+  capped, timeouts stay mandatory, and persisted failures omit raw standard
+  error text.
+- **Maintained claims-gate integration** — the publication fixture prefers
+  `agent-ops claims check`, with the deprecated standalone `claimguard` binary
+  retained only as a compatibility fallback.
 
 ## [0.8.0] — 2026-07-22
 

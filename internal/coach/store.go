@@ -118,7 +118,7 @@ func (s *Store) ListDecks() ([]Deck, error) {
 }
 
 func (s *Store) AppendSession(session *Session) error {
-	if session.SchemaVersion != SchemaVersion || session.ID == "" || session.DeckID == "" {
+	if session.SchemaVersion != SchemaVersion || session.RubricVersion != RubricVersion || session.ID == "" || session.DeckID == "" {
 		return fmt.Errorf("invalid coach session")
 	}
 	raw, err := json.Marshal(session)
@@ -167,6 +167,7 @@ type Stats struct {
 	DueReviews      int             `json:"due_reviews"`
 	ByProject       map[string]Band `json:"by_project,omitempty"`
 	ByMode          map[Mode]Band   `json:"by_mode,omitempty"`
+	ByRubric        map[string]int  `json:"by_rubric,omitempty"`
 }
 
 type Band struct {
@@ -179,7 +180,7 @@ func (s *Store) Stats(now time.Time, projectFilter string) (*Stats, error) {
 	if err != nil {
 		return nil, err
 	}
-	report := &Stats{ByProject: map[string]Band{}, ByMode: map[Mode]Band{}}
+	report := &Stats{ByProject: map[string]Band{}, ByMode: map[Mode]Band{}, ByRubric: map[string]int{}}
 	total := 0
 	projectTotals := map[string]int{}
 	modeTotals := map[Mode]int{}
@@ -192,6 +193,11 @@ func (s *Store) Stats(now time.Time, projectFilter string) (*Stats, error) {
 			continue
 		}
 		report.Sessions++
+		rubric := session.RubricVersion
+		if rubric == "" {
+			rubric = "legacy"
+		}
+		report.ByRubric[rubric]++
 		total += session.Score
 		report.ClaimViolations += session.ClaimViolations
 		if !session.NextReviewAt.After(now) {

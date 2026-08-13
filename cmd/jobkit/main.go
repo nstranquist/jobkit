@@ -49,7 +49,7 @@ var boolFlags = map[string]bool{
 	"json": true, "all": true, "full": true, "help": true, "remote": true,
 	"inbox": true, "force": true, "strict": true, "compact": true,
 	"relocation-open": true, "override-eligibility": true,
-	"allow-unassessed-eligibility": true, "fix-permissions": true,
+	"allow-unassessed-eligibility": true, "fix-permissions": true, "migrate": true,
 }
 
 type cli struct {
@@ -102,7 +102,7 @@ func main() {
 		cmd = c.args[0]
 	}
 	err := dispatch(cmd, c)
-	telemetry.Record(strings.Join(c.args, " "), start, err)
+	telemetry.Record(telemetry.CommandID(c.args), start, err)
 	if err != nil {
 		if c.bool("json") {
 			os.Exit(envelope.EmitError(err))
@@ -191,8 +191,34 @@ func cmdDoctor(c *cli) error {
 	if len(c.args) > 1 {
 		sub = c.args[1]
 	}
+	if sub == "telemetry" {
+		path, err := home.TelemetryPath()
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		var report telemetry.AuditReport
+		if c.bool("migrate") {
+			report, err = telemetry.Migrate(path)
+		} else {
+			report, err = telemetry.Audit(path)
+		}
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		if c.bool("json") {
+			envelope.EmitData(report)
+			return nil
+		}
+		fmt.Printf("telemetry: %d current, %d legacy, %d invalid record(s)\n", report.CurrentRecords, report.LegacyRecords, report.InvalidRecords)
+		if report.Migrated {
+			fmt.Println("telemetry: atomically migrated to privacy schema v2")
+		} else if report.LegacyRecords > 0 {
+			fmt.Println("run jobkit doctor telemetry --migrate to remove legacy arguments and raw errors")
+		}
+		return nil
+	}
 	if sub != "permissions" {
-		return envelope.Newf(envelope.CodeInvalidArgs, "unknown doctor subcommand %q", sub).WithHint("permissions")
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown doctor subcommand %q", sub).WithHint("permissions|telemetry")
 	}
 	report, err := home.CheckPermissions(c.bool("fix-permissions"))
 	if err != nil {

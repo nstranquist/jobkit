@@ -22,11 +22,15 @@ type approvedLicense struct {
 
 var approved = map[string]approvedLicense{
 	"golang.org/x/net": {
-		Version: "v0.56.0", Expression: "BSD-3-Clause",
+		Version: "v0.58.0", Expression: "BSD-3-Clause",
 		SHA256: "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
 	},
-	"gopkg.in/yaml.v3": {
-		Version: "v3.0.1", Expression: "MIT AND Apache-2.0",
+	"golang.org/x/sys": {
+		Version: "v0.47.0", Expression: "BSD-3-Clause",
+		SHA256: "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+	},
+	"go.yaml.in/yaml/v3": {
+		Version: "v3.0.5", Expression: "MIT AND Apache-2.0",
 		SHA256: "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b",
 	},
 }

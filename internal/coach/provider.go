@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -201,14 +203,15 @@ func execute(parent context.Context, command Command, stdin []byte, audioPath st
 		if stderr.exceeded {
 			return nil, fmt.Errorf("coach adapter error output exceeded 64 KiB")
 		}
-		message := strings.TrimSpace(stderr.String())
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("coach adapter timed out after %s", timeout)
 		}
-		if message == "" {
-			message = err.Error()
+		exitCode := "unknown"
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			exitCode = strconv.Itoa(exitError.ExitCode())
 		}
-		return nil, fmt.Errorf("coach adapter failed: %s", message)
+		return nil, fmt.Errorf("coach adapter failed with exit code %s; adapter stderr was not retained", exitCode)
 	}
 	if stdout.exceeded {
 		return nil, fmt.Errorf("coach adapter output exceeded 4 MiB")
@@ -223,9 +226,15 @@ func validateCommand(command Command) error {
 	if command.TimeoutSeconds < 0 || command.TimeoutSeconds > 300 {
 		return fmt.Errorf("timeout_seconds must be between 0 and 300")
 	}
+	if len(command.Argv) > 64 {
+		return fmt.Errorf("argv cannot contain more than 64 elements")
+	}
 	for _, arg := range command.Argv {
 		if strings.ContainsRune(arg, '\x00') {
 			return fmt.Errorf("argv cannot contain a NUL byte")
+		}
+		if len(arg) > 4096 {
+			return fmt.Errorf("argv elements cannot exceed 4096 bytes")
 		}
 	}
 	return nil

@@ -4,7 +4,6 @@
 package eligibility
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"regexp"
@@ -13,7 +12,8 @@ import (
 	"strings"
 
 	"github.com/nstranquist/jobkit/internal/privatefs"
-	"gopkg.in/yaml.v3"
+	"github.com/nstranquist/jobkit/internal/strictyaml"
+	"go.yaml.in/yaml/v3"
 )
 
 type Status string
@@ -120,9 +120,7 @@ func Load(path string) (Config, error) {
 		return Config{}, err
 	}
 	var config Config
-	decoder := yaml.NewDecoder(bytes.NewReader(payload))
-	decoder.KnownFields(true)
-	if err := decoder.Decode(&config); err != nil {
+	if err := strictyaml.Unmarshal(payload, &config); err != nil {
 		return Config{}, fmt.Errorf("parse %s: %w", path, err)
 	}
 	if err := config.Validate(); err != nil {
