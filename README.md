@@ -74,18 +74,16 @@ jobkit apply https://job-boards.greenhouse.io/acme/jobs/123 --tone warm
 #   → tracked with its match score
 
 jobkit prep posting.txt                 # interview-prep sheet
-# In a nicos-tools checkout, verify and import the fact-locked source:
-ndev catalog portfolio coach sync
-# Or import a reviewed standalone source bundle:
+# Import a reviewed standalone source bundle:
 jobkit coach source import examples/coach-source.json
 jobkit coach deck --job posting.txt --mode mixed --minutes 20
 jobkit coach run latest --answers examples/coach-answers.json
 jobkit coach stats
 jobkit coach serve                      # http://127.0.0.1:7331 only
 jobkit track set acme --status applied \
-  --resume-manifest ~/dev/nicos-resume/formats-workspace/exports/sendable/manifest-general_v1_7_3.json \
+  --resume-manifest path/to/resume-manifest.json \
   --resume-artifact pdf \
-  --resume-artifact-file ~/dev/nicos-resume/formats-workspace/exports/sendable/Nicholas_Stranquist_Resume_v1.8.0.pdf \
+  --resume-artifact-file path/to/resume.pdf \
   --lane platform --source cold
 jobkit track followups --days 7
 jobkit track remind --format ics --out auto
