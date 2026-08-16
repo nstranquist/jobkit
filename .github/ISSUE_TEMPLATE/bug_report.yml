@@ -1,0 +1,70 @@
+name: Bug report
+description: Report JobKit behavior that looks wrong.
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve JobKit. Remove private job-search data, tokens, and personal details before you submit this form.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: State what JobKit did and which command you ran.
+      placeholder: A short description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest safe example that shows the problem.
+      placeholder: |
+        1. Run `jobkit ...`
+        2. Provide this synthetic input ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State what you expected JobKit to do.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: JobKit version
+      description: Paste the output of `jobkit version` when available.
+      placeholder: v0.9.0
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Safe diagnostic output
+      description: Add relevant output after you remove secrets and personal data.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I removed secrets, resumes, applications, contacts, and other personal data.
+          required: true
+        - label: I agree to follow the JobKit Code of Conduct.
+          required: true

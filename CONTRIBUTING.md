@@ -2,6 +2,8 @@
 
 Local development for the offline-first job application toolkit.
 
+By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Setup
 
 ```sh
@@ -28,7 +30,8 @@ Requires Go 1.26.6. CI tests Linux, macOS, and Windows with that patch release.
 - `make verify-publication` is the single local gate (tests, vet, license
   audit, gitleaks history + tree).
 - Synthetic fixtures only: `examples/profile.yaml`, `examples/jd-backend.txt`.
-- Public push remains human-gated; this repo may be private or local-only.
+- Releases and public pushes remain human-gated. Run `make publish-ready` before
+  either action.
 
 ## Layout
 

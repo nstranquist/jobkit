@@ -20,8 +20,8 @@ JobKit-operated service. Network calls are limited to:
 
 If you find a vulnerability in JobKit source (e.g. path traversal writing
 outside `JOBKIT_HOME`, secret leakage in fixtures, unsafe PDF/Chrome flags),
-email the maintainer via the GitHub profile contact once the repository is
-public, or open a private security advisory.
+email the maintainer through the GitHub profile contact or open a
+[private security advisory](https://github.com/nstranquist/jobkit/security/advisories/new).
 
 ## Secrets in this tree
 
