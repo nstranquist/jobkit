@@ -10,9 +10,11 @@ driven, so it works for any field you can describe in skills and bullets.
 
 ![JobKit generated ATS-safe tailored resume](portfolio/assets/tailored-resume.png)
 
-This is real HTML output generated from the repository's fictional example
-profile and job description, with no personal data. It is the reviewed evidence
-declared in `portfolio/manifest.yaml`.
+![JobKit user guide](screenshots/user-guide.png)
+
+The resume is real HTML from the repository's fictional example profile and
+job description. The second image is the single-file user guide. Neither
+contains personal data. Extra shots live in [screenshots/](screenshots/).
 
 ## What it does
 

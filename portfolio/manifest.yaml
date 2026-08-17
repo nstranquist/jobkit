@@ -7,6 +7,10 @@ assets:
       kind: screenshot
       alt: JobKit generated ATS-safe tailored resume
       caption: A real HTML resume generated from JobKit's fictional example profile and job description.
+    - path: screenshots/user-guide.png
+      kind: screenshot
+      alt: JobKit user guide
+      caption: The single-file local user guide at 1440x900.
     - path: assets/brand/jobkit.svg
       kind: logo
       alt: jobkit application icon
