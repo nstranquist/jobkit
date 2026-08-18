@@ -22,16 +22,22 @@ async function api(path, options = {}) {
   return body;
 }
 async function boot() {
-  const [decks, config, study] = await Promise.all([
-    api("/api/decks"), api("/api/config"), api("/api/study")
-  ]);
+  const [decks, config] = await Promise.all([api("/api/decks"), api("/api/config")]);
   canTranscribe = config.transcription_available;
   deckSelect.replaceChildren(...decks.decks.map((deck) => new Option(
     deck.role + " · " + deck.mode + " · " + deck.minutes + " min", deck.id
   )));
   providerSelect.append(...(config.providers || []).map((name) => new Option(name, name)));
-  renderStudy(study);
   if (!decks.decks.length) status("Pin study is ready. Create a deck with jobkit coach deck for JD-tied drills.");
+  try {
+    let study = await api("/api/study");
+    if (study.next && study.next.module_id) {
+      study = await api("/api/study/modules/" + encodeURIComponent(study.next.module_id));
+    }
+    renderStudy(study);
+  } catch (error) {
+    status("Pin study failed to load: " + error.message);
+  }
 }
 
 function listEl(items) {

@@ -1,10 +1,5 @@
 // Study mode teaches the six job-search OSS pins in a fixed order and scores
-// practice attempts deterministically. It extends JobKit Coach.
-//
-// Gap this fills: coach source|deck|run is JD-tied interview Q&A. It has no
-// teaching cards, no pin order, and no progress across modules. Study adds
-// that loop here. It does not revive retired ndev learn and it is not a new
-// job-search CLI.
+// practice attempts deterministically on the existing Coach surface.
 package coach
 
 import (
@@ -567,6 +562,10 @@ func LaunchCurriculum(store *Store, cur *Curriculum, opts LaunchOptions) (*Study
 		}
 		moduleID = report.Next.ModuleID
 		practiceID = report.Next.PracticeID
+	} else if practiceID == "" {
+		if id := firstIncompleteInModule(cur, moduleID, results); id != "" {
+			practiceID = id
+		}
 	}
 	module, practice, err := cur.Practice(moduleID, practiceID)
 	if err != nil {
@@ -640,6 +639,20 @@ func ClaimTrace(cur *Curriculum) []ClaimTraceRow {
 		}
 	}
 	return rows
+}
+
+func firstIncompleteInModule(cur *Curriculum, moduleID string, results []StudyResult) string {
+	module, err := cur.Module(moduleID)
+	if err != nil {
+		return ""
+	}
+	passed := passedSet(results)
+	for _, practice := range module.Practices {
+		if !passed[practiceKey(module.ID, practice.ID)] {
+			return practice.ID
+		}
+	}
+	return ""
 }
 
 func passedSet(results []StudyResult) map[string]bool {

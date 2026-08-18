@@ -163,6 +163,20 @@ func TestProgressAdvancesAndSecondLoadResumes(t *testing.T) {
 	if resumed == nil || resumed.PracticeID != report.Next.PracticeID {
 		t.Fatalf("resumed next = %+v, want %+v", resumed, report.Next)
 	}
+
+	_, demo, err := cur.Practice("docs-puller", "run-demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	continued, err := LaunchCurriculum(store, cur, LaunchOptions{
+		ModuleID: "docs-puller", Answer: matchingAnswer(demo), Now: now.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if continued.Attempt == nil || continued.Attempt.PracticeID != "run-demo" || !continued.Attempt.Passed {
+		t.Fatalf("module attempt without practice id did not continue at next incomplete: %+v", continued.Attempt)
+	}
 }
 
 func TestClaimTraceCoversExtractedTokens(t *testing.T) {
