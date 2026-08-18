@@ -51,7 +51,7 @@ var subcommands = map[string]map[string]bool{
 	"company":     set("path", "add", "signal", "note", "show", "list"),
 	"contact":     set("path", "add", "import", "list", "show", "touch", "referral", "note"),
 	"contacts":    set("path", "add", "import", "list", "show", "touch", "referral", "note"),
-	"coach":       set("source", "deck", "run", "stats", "serve", "path"),
+	"coach":       set("source", "deck", "run", "stats", "serve", "study", "path"),
 	"inbox":       set("add", "recheck", "slate", "list", "stale", "show", "outreach", "form", "set", "note"),
 	"track":       set("add", "list", "show", "set", "note", "board", "stats", "followups", "remind"),
 }

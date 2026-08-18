@@ -55,3 +55,5 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .rubric { font-size: .9rem; }
 .result { border-left: 4px solid var(--good); padding-left: 14px; }
 .status { min-height: 1.5em; }
+#study-teach ul { margin: 0.2rem 0 1rem; padding-left: 1.2rem; color: var(--muted); }
+#study h2 { margin-top: 0; }

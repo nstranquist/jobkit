@@ -23,7 +23,7 @@
 <body><main>
   <header>
     <h1>JobKit Coach operator guide</h1>
-    <p>JobKit Coach creates role-specific interview drills from reviewed public evidence. It stores all practice state on this computer.</p>
+    <p>Companion to the <a href="jobkit.html">JobKit user guide</a>. JobKit Coach creates role-specific interview drills from reviewed public evidence. It stores all practice state on this computer.</p>
   </header>
 
   <section>
@@ -39,7 +39,7 @@
       </article>
       <article class="card">
         <h3>3. Practice and review</h3>
-        <p>Answer in the terminal or localhost UI. JobKit records the score and next review date.</p>
+        <p>Use <code>jobkit coach study</code> to learn the six OSS pins in order. Use a deck to practice one job description. JobKit records the score and the next step.</p>
       </article>
     </div>
   </section>
@@ -50,6 +50,8 @@
 ndev catalog portfolio coach sync
 
 # Standalone JobKit users can import a reviewed bundle directly.
+jobkit coach study
+jobkit coach study --module docs-puller --answer "local-first sqlite fts5 bm25 eval hit@1"
 jobkit coach source import public-bundle.json
 jobkit coach deck --job posting.txt --mode mixed --minutes 20
 jobkit coach run latest

@@ -37,6 +37,8 @@ func cmdCoach(c *cli) error {
 		return cmdCoachStats(c)
 	case "serve":
 		return cmdCoachServe(c)
+	case "study":
+		return cmdCoachStudy(c)
 	case "path":
 		store, err := coachStore()
 		if err != nil {
@@ -49,7 +51,7 @@ func cmdCoach(c *cli) error {
 		}
 		return nil
 	default:
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach source|deck|run|stats|serve|path")
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach source|deck|run|stats|serve|study|path")
 	}
 }
 
@@ -365,15 +367,194 @@ func cmdCoachStats(c *cli) error {
 	return nil
 }
 
+func cmdCoachStudy(c *cli) error {
+	store, err := coachStore()
+	if err != nil {
+		return err
+	}
+	action := ""
+	if len(c.args) > 2 {
+		action = c.args[2]
+	}
+	moduleID := strings.TrimSpace(c.str("module"))
+	practiceID := strings.TrimSpace(c.str("practice"))
+	if moduleID == "" && action != "" && action != "list" && action != "show" && action != "attempt" && action != "next" && action != "status" && action != "claims" && action != "launch" {
+		moduleID = action
+		action = "show"
+	}
+	answer, err := studyAnswer(c)
+	if err != nil {
+		return envelope.New(envelope.CodeInvalidArgs, err.Error())
+	}
+	switch action {
+	case "claims":
+		cur, err := coach.LoadCurriculum()
+		if err != nil {
+			return envelope.New(envelope.CodeInternal, err.Error())
+		}
+		rows := coach.ClaimTrace(cur)
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"claims": rows})
+			return nil
+		}
+		return printClaimTrace(rows)
+	case "show":
+		if moduleID == "" && len(c.args) > 3 {
+			moduleID = c.args[3]
+		}
+		if moduleID == "" {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study show <module>")
+		}
+	case "attempt":
+		if moduleID == "" && len(c.args) > 3 {
+			moduleID = c.args[3]
+		}
+		if strings.TrimSpace(answer) == "" {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study attempt <module> --answer TEXT|--answers FILE")
+		}
+	case "list", "next", "status", "launch", "":
+	default:
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study [list|show|attempt|next|status|claims]").WithHint("jobkit coach study --module docs-puller --answer \"...\" teaches, scores, and reports the next step")
+	}
+	if action == "attempt" && moduleID == "" {
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study attempt <module> --answer TEXT|--answers FILE")
+	}
+	opts := coach.LaunchOptions{ModuleID: moduleID, PracticeID: practiceID, Answer: answer, Now: time.Now().UTC()}
+	if action == "next" {
+		opts = coach.LaunchOptions{}
+	}
+	report, err := coach.Launch(store, opts)
+	if err != nil {
+		return envelope.New(envelope.CodeInvalidArgs, err.Error())
+	}
+	if action == "show" && report.Module == nil {
+		return envelope.New(envelope.CodeNotFound, "study module is missing")
+	}
+	if c.bool("json") {
+		envelope.EmitData(report)
+		return nil
+	}
+	printStudyReport(report)
+	return nil
+}
+
+func studyAnswer(c *cli) (string, error) {
+	if path := strings.TrimSpace(c.str("answers")); path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return "", err
+		}
+		trimmed := bytes.TrimSpace(raw)
+		if len(trimmed) == 0 {
+			return "", fmt.Errorf("study answers file is empty")
+		}
+		if trimmed[0] == '{' || trimmed[0] == '[' {
+			var wrapped struct {
+				Text   string `json:"text"`
+				Answer string `json:"answer"`
+			}
+			if err := decodeCoachJSON(trimmed, &wrapped); err == nil {
+				if text := firstNonEmpty(wrapped.Text, wrapped.Answer); text != "" {
+					return text, nil
+				}
+			}
+			answers, err := loadCoachAnswers(path)
+			if err != nil {
+				return "", err
+			}
+			if len(answers) == 0 {
+				return "", fmt.Errorf("study answers file has no text")
+			}
+			return answers[0].Text, nil
+		}
+		return string(trimmed), nil
+	}
+	return c.str("answer"), nil
+}
+
+func printStudyReport(report *coach.StudyReport) {
+	if len(report.Modules) > 0 {
+		fmt.Println("PIN MODULES")
+		for _, module := range report.Modules {
+			mark := ""
+			if module.Complete {
+				mark = " done"
+			}
+			fmt.Printf("  %d. %s  %d/%d%s\n", module.Order, module.ID, module.Passed, module.Practices, mark)
+		}
+		fmt.Println()
+	}
+	if report.Module != nil {
+		fmt.Printf("MODULE %s\n", report.Module.ID)
+		fmt.Printf("Purpose: %s\n", report.Module.Purpose)
+		if len(report.Module.Architecture) > 0 {
+			fmt.Println("Architecture:")
+			for _, line := range report.Module.Architecture {
+				fmt.Printf("  - %s\n", line)
+			}
+		}
+		if len(report.Module.Decisions) > 0 {
+			fmt.Println("Decisions:")
+			for _, line := range report.Module.Decisions {
+				fmt.Printf("  - %s\n", line)
+			}
+		}
+		fmt.Printf("Run / demo:\n  %s\n", report.Module.RunDemo)
+		if len(report.Module.TalkingPoints) > 0 {
+			fmt.Println("Talking points:")
+			for _, line := range report.Module.TalkingPoints {
+				fmt.Printf("  - %s\n", line)
+			}
+		}
+		if len(report.Module.Practices) > 0 {
+			fmt.Println("Practices:")
+			for _, practice := range report.Module.Practices {
+				fmt.Printf("  - %s (%s) %s\n", practice.ID, practice.Kind, practice.Prompt)
+			}
+		}
+		fmt.Println()
+	}
+	if report.Attempt != nil {
+		status := "FAIL"
+		if report.Attempt.Passed {
+			status = "PASS"
+		}
+		fmt.Printf("SCORE %d/100  %s  (%s)\n", report.Attempt.Score, status, report.Attempt.Verdict)
+		if len(report.Attempt.CoveredConcepts) > 0 {
+			fmt.Printf("covered: %s\n", strings.Join(report.Attempt.CoveredConcepts, ", "))
+		}
+		if len(report.Attempt.MissingConcepts) > 0 {
+			fmt.Printf("missing: %s\n", strings.Join(report.Attempt.MissingConcepts, ", "))
+		}
+		if len(report.Attempt.ClaimViolations) > 0 {
+			fmt.Printf("claim violations: %d\n", len(report.Attempt.ClaimViolations))
+			for _, v := range report.Attempt.ClaimViolations {
+				fmt.Printf("  - %s\n", v.Token)
+			}
+		}
+		fmt.Println()
+	}
+	if report.Next != nil && report.Next.Prompt != "" {
+		fmt.Printf("next: %s / %s — %s\n", report.Next.ModuleID, report.Next.PracticeID, report.Next.Prompt)
+		return
+	}
+	fmt.Println("next: all pin practices complete")
+}
+
+func printClaimTrace(rows []coach.ClaimTraceRow) error {
+	fmt.Printf("%-16s %-12s %-28s %-18s %s\n", "MODULE", "TOKEN", "CLAIM", "AUTHORITY", "LOCATOR")
+	for _, row := range rows {
+		fmt.Printf("%-16s %-12s %-28s %-18s %s\n", row.ModuleID, row.Token, row.ClaimID, row.Authority, row.Locator)
+	}
+	return nil
+}
+
 func cmdCoachServe(c *cli) error {
 	store, err := coachStore()
 	if err != nil {
 		return err
 	}
-	if _, err := store.LoadSource(); err != nil {
-		if os.IsNotExist(err) {
-			return envelope.New(envelope.CodeNotFound, "coach source is missing").WithHint("run `jobkit coach source import <public-bundle.json>`")
-		}
+	if _, err := store.LoadSource(); err != nil && !os.IsNotExist(err) {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
 	addr := strings.TrimSpace(c.str("addr"))

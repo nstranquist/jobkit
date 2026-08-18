@@ -22,13 +22,99 @@ async function api(path, options = {}) {
   return body;
 }
 async function boot() {
-  const [decks, config] = await Promise.all([api("/api/decks"), api("/api/config")]);
+  const [decks, config, study] = await Promise.all([
+    api("/api/decks"), api("/api/config"), api("/api/study")
+  ]);
   canTranscribe = config.transcription_available;
   deckSelect.replaceChildren(...decks.decks.map((deck) => new Option(
     deck.role + " · " + deck.mode + " · " + deck.minutes + " min", deck.id
   )));
   providerSelect.append(...(config.providers || []).map((name) => new Option(name, name)));
-  if (!decks.decks.length) status("Create a deck with jobkit coach deck, then reload this page.");
+  renderStudy(study);
+  if (!decks.decks.length) status("Pin study is ready. Create a deck with jobkit coach deck for JD-tied drills.");
+}
+
+function listEl(items) {
+  const node = document.createElement("ul");
+  (items || []).forEach((item) => node.append(text("li", item)));
+  return node;
+}
+
+function renderStudy(report) {
+  const moduleSelect = document.querySelector("#study-module");
+  const next = document.querySelector("#study-next");
+  if (!moduleSelect || !report) return;
+  moduleSelect.replaceChildren(...(report.modules || []).map((module) => new Option(
+    module.order + ". " + module.id + " (" + module.passed + "/" + module.practices + ")",
+    module.id
+  )));
+  if (report.module) moduleSelect.value = report.module.id;
+  else if (report.next) moduleSelect.value = report.next.module_id;
+  fillStudyPractices(report);
+  next.textContent = report.next
+    ? "Next: " + report.next.module_id + " / " + report.next.practice_id + " — " + report.next.prompt
+    : "Next: all pin practices complete";
+  if (report.module) showStudyTeach(report.module);
+  if (report.attempt) showStudyResult(report.attempt);
+}
+
+function fillStudyPractices(report) {
+  const practiceSelect = document.querySelector("#study-practice");
+  const practices = (report.module && report.module.practices) || [];
+  practiceSelect.replaceChildren(...practices.map((practice) => new Option(practice.id + " · " + practice.kind, practice.id)));
+  if (report.next && report.module && report.next.module_id === report.module.id) {
+    practiceSelect.value = report.next.practice_id;
+  }
+}
+
+function showStudyTeach(module) {
+  const teach = document.querySelector("#study-teach");
+  teach.replaceChildren();
+  teach.append(text("h3", module.name));
+  teach.append(text("p", module.purpose));
+  teach.append(text("p", "Architecture", "meta"));
+  teach.append(listEl(module.architecture));
+  teach.append(text("p", "Decisions", "meta"));
+  teach.append(listEl(module.decisions));
+  teach.append(text("p", "Run / demo: " + module.run_demo));
+  teach.append(text("p", "Talking points", "meta"));
+  teach.append(listEl(module.talking_points));
+}
+
+function showStudyResult(attempt) {
+  const target = document.querySelector("#study-result");
+  target.replaceChildren();
+  const card = document.createElement("article");
+  card.className = "result";
+  card.append(text("p", "Score " + attempt.score + "/100 · " + attempt.verdict + (attempt.passed ? " · PASS" : " · FAIL")));
+  if ((attempt.missing_concepts || []).length) {
+    card.append(text("p", "Missing: " + attempt.missing_concepts.join(", "), "meta"));
+  }
+  if ((attempt.claim_violations || []).length) {
+    card.append(text("p", "Claim rejected: " + attempt.claim_violations.map((row) => row.token).join(", "), "meta"));
+  }
+  target.append(card);
+}
+
+async function loadStudyModule() {
+  const id = document.querySelector("#study-module").value;
+  const report = await api("/api/study/modules/" + encodeURIComponent(id));
+  renderStudy(report);
+  status("Loaded " + id + " teaching content.");
+}
+
+async function scoreStudy() {
+  const report = await api("/api/study/attempt", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      module_id: document.querySelector("#study-module").value,
+      practice_id: document.querySelector("#study-practice").value,
+      text: document.querySelector("#study-answer").value
+    })
+  });
+  renderStudy(report);
+  status(report.attempt && report.attempt.passed ? "Practice passed. Next step is ready." : "Practice recorded. Review missing concepts or claims.");
 }
 async function loadDeck() {
   if (!deckSelect.value) return;
@@ -174,4 +260,6 @@ function encodeWav(samples, rate) {
 }
 document.querySelector("#load").addEventListener("click", () => loadDeck().catch((error) => status(error.message)));
 document.querySelector("#stats").addEventListener("click", () => showStats().catch((error) => status(error.message)));
+document.querySelector("#study-load").addEventListener("click", () => loadStudyModule().catch((error) => status(error.message)));
+document.querySelector("#study-score").addEventListener("click", () => scoreStudy().catch((error) => status(error.message)));
 boot().catch((error) => status(error.message));

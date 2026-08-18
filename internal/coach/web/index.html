@@ -10,7 +10,20 @@
 <body><main>
   <p class="meta">LOCALHOST ONLY · EVIDENCE-LINKED PRACTICE</p>
   <h1>JobKit Coach</h1>
-  <p class="lead">Practice project, behavioral, system-design, and claim-defense answers. Deterministic scoring remains authoritative.</p>
+  <p class="lead">Practice the six job-search OSS pins in order, then run JD-tied interview decks. Deterministic scoring remains authoritative.</p>
+  <section id="study" class="card">
+    <h2>Pin study</h2>
+    <p class="meta" id="study-next"></p>
+    <div class="toolbar">
+      <label>Module<select id="study-module"></select></label>
+      <label>Practice<select id="study-practice"></select></label>
+      <button id="study-load" class="secondary">Show module</button>
+      <button id="study-score">Score practice</button>
+    </div>
+    <section id="study-teach"></section>
+    <label>Answer<textarea id="study-answer" placeholder="Cover the expected concepts. Untraceable numbers fail closed."></textarea></label>
+    <section id="study-result"></section>
+  </section>
   <section class="toolbar">
     <label>Practice deck<select id="deck"></select></label>
     <label>Advisory feedback<select id="provider"><option value="none">Deterministic score only</option></select></label>

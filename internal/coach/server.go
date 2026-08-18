@@ -56,6 +56,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("POST /api/sessions", s.handleSession)
 	mux.HandleFunc("POST /api/transcribe", s.handleTranscribe)
+	mux.HandleFunc("GET /api/study", s.handleStudy)
+	mux.HandleFunc("GET /api/study/modules/{id}", s.handleStudyModule)
+	mux.HandleFunc("POST /api/study/attempt", s.handleStudyAttempt)
+	mux.HandleFunc("GET /api/study/next", s.handleStudyNext)
+	mux.HandleFunc("GET /api/study/claims", s.handleStudyClaims)
 	return securityHeaders(localRequestBoundary(s.authBoundary(mux)))
 }
 
@@ -335,6 +340,75 @@ func (s *Server) handleTranscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"text": text})
+}
+
+type studyAttemptRequest struct {
+	ModuleID   string `json:"module_id"`
+	PracticeID string `json:"practice_id,omitempty"`
+	Text       string `json:"text"`
+}
+
+func (s *Server) handleStudy(w http.ResponseWriter, _ *http.Request) {
+	report, err := Launch(s.Store, LaunchOptions{})
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *Server) handleStudyModule(w http.ResponseWriter, r *http.Request) {
+	report, err := Launch(s.Store, LaunchOptions{ModuleID: r.PathValue("id")})
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *Server) handleStudyAttempt(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 2*1024*1024)
+	var request studyAttemptRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&request); err != nil {
+		writeAPIError(w, http.StatusBadRequest, fmt.Errorf("decode study attempt: %w", err))
+		return
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		writeAPIError(w, http.StatusBadRequest, fmt.Errorf("decode study attempt: trailing JSON data"))
+		return
+	}
+	if strings.TrimSpace(request.Text) == "" {
+		writeAPIError(w, http.StatusBadRequest, fmt.Errorf("study attempt text is required"))
+		return
+	}
+	report, err := Launch(s.Store, LaunchOptions{
+		ModuleID: request.ModuleID, PracticeID: request.PracticeID, Answer: request.Text, Now: time.Now().UTC(),
+	})
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, report)
+}
+
+func (s *Server) handleStudyNext(w http.ResponseWriter, _ *http.Request) {
+	report, err := Launch(s.Store, LaunchOptions{})
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"next": report.Next})
+}
+
+func (s *Server) handleStudyClaims(w http.ResponseWriter, _ *http.Request) {
+	cur, err := LoadCurriculum()
+	if err != nil {
+		writeAPIError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"claims": ClaimTrace(cur)})
 }
 
 func writeAPIError(w http.ResponseWriter, status int, err error) {

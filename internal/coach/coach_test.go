@@ -370,6 +370,55 @@ func TestServerRejectsDNSRebindingAndCrossOriginWrites(t *testing.T) {
 	}
 }
 
+func TestServerStudyUsesSameScoreAndProgress(t *testing.T) {
+	store, err := NewStore(filepath.Join(t.TempDir(), "coach"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur, err := LoadCurriculum()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, practice, err := cur.Practice("docs-puller", "explain-local-first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(studyAttemptRequest{
+		ModuleID: "docs-puller", PracticeID: "explain-local-first",
+		Text: strings.Join(practice.ExpectedConcepts, " ") + " because the eval is public.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := (&Server{Store: store, Token: "test-token"}).Handler()
+	req := httptest.NewRequest(http.MethodPost, "/api/study/attempt", bytes.NewReader(payload))
+	req.Host = "127.0.0.1:7331"
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var report StudyReport
+	if err := json.Unmarshal(rec.Body.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Attempt == nil || !report.Attempt.Passed {
+		t.Fatalf("attempt = %+v", report.Attempt)
+	}
+	if report.Module == nil || !strings.Contains(report.Module.Purpose, "Local-first") {
+		t.Fatalf("teaching content missing: %+v", report.Module)
+	}
+	if report.Next == nil || report.Next.Prompt == "" {
+		t.Fatal("next step missing")
+	}
+	results, err := store.StudyResults()
+	if err != nil || len(results) != 1 || !results[0].Passed {
+		t.Fatalf("store results = %+v err=%v", results, err)
+	}
+}
+
 func TestServerRequiresTokenAndBootstrapsHttpOnlyCookie(t *testing.T) {
 	server := (&Server{Token: "test-token"}).Handler()
 	unauthorized := httptest.NewRequest(http.MethodGet, "/api/config", nil)

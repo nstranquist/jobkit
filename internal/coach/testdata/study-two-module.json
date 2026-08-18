@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "fixture-two-pins",
+  "order": ["docs-puller", "nicos-catalog"],
+  "claims": [
+    {
+      "id": "docs-puller.public-eval",
+      "text": "Public BM25 sample reached 95.8% Hit@1 and 100% Hit@5",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/docs-puller"
+    },
+    {
+      "id": "catalog.entity-scale",
+      "text": "Catalog validates and indexes a 3,400+ entity production corpus locally",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/nicos-catalog"
+    }
+  ],
+  "modules": [
+    {
+      "id": "docs-puller",
+      "name": "docs-puller",
+      "purpose": "Local-first docs retrieval with a public BM25 sample of 95.8% Hit@1.",
+      "architecture": ["SQLite FTS5 index", "Public sample eval"],
+      "decisions": ["Local-first privacy"],
+      "run_demo": "docs-puller demo",
+      "talking_points": ["Public BM25 sample reached 95.8% Hit@1 and 100% Hit@5"],
+      "claim_ids": ["docs-puller.public-eval"],
+      "practices": [
+        {
+          "id": "explain-local-first",
+          "kind": "explain",
+          "prompt": "Explain local-first retrieval.",
+          "expected_concepts": ["local-first", "fts5", "eval"],
+          "claim_ids": ["docs-puller.public-eval"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the demo command.",
+          "expected_concepts": ["docs-puller", "demo"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "nicos-catalog",
+      "name": "Nicos Catalog",
+      "purpose": "Portable Go catalog engine for a 3,400+ entity local corpus.",
+      "architecture": ["Provider injection", "Fail-closed drift"],
+      "decisions": ["Closed public projection"],
+      "run_demo": "nicos-catalog demo",
+      "talking_points": ["Do not discuss valuation"],
+      "claim_ids": ["catalog.entity-scale"],
+      "practices": [
+        {
+          "id": "explain-portable-core",
+          "kind": "explain",
+          "prompt": "Explain portable core versus host policy.",
+          "expected_concepts": ["portable", "drift", "provider"],
+          "pass_threshold": 70
+        }
+      ]
+    }
+  ]
+}

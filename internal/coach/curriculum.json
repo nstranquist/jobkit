@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "id": "job-search-oss-pins",
+  "order": [
+    "docs-puller",
+    "nicos-catalog",
+    "openbook",
+    "agent-ops",
+    "keepawake",
+    "jobkit"
+  ],
+  "claims": [
+    {
+      "id": "docs-puller.open-source",
+      "text": "docs-puller is open-sourced under Apache-2.0",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/docs-puller"
+    },
+    {
+      "id": "docs-puller.public-eval",
+      "text": "Public BM25 sample reached 95.8% Hit@1 and 100% Hit@5",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/docs-puller"
+    },
+    {
+      "id": "catalog.local-engine",
+      "text": "Built, publicly released, and uses Nicos Catalog v0.1.1 in local work",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/nicos-catalog"
+    },
+    {
+      "id": "catalog.entity-scale",
+      "text": "Catalog validates and indexes a 3,400+ entity production corpus locally",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/nicos-catalog"
+    },
+    {
+      "id": "openbook.open-source",
+      "text": "Openbook is open-sourced under MIT",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/openbook"
+    },
+    {
+      "id": "openbook.realtime-product",
+      "text": "Built a TypeScript and Convex realtime social application with identity, a friend graph, a feed, comments, and messages",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/openbook"
+    },
+    {
+      "id": "independent.local-products",
+      "text": "Builds and uses Nicos Catalog, docs-puller, and Openbook on real projects",
+      "authority": "claims-lock",
+      "locator": "https://github.com/nstranquist/docs-puller"
+    }
+  ],
+  "modules": [
+    {
+      "id": "docs-puller",
+      "name": "docs-puller",
+      "purpose": "Local-first documentation retrieval for engineers and AI agents. Mirror vendor and project docs to Markdown, index them with SQLite FTS5, search on the machine, and prove quality with a rerunnable public BM25 sample eval.",
+      "architecture": [
+        "Docs sources crawl or mirror into a Markdown corpus.",
+        "A SQLite FTS5 index is built with a pure Go driver.",
+        "Search uses BM25. Optional embeddings and LLM rerank are additive upgrades, not the honest public floor.",
+        "An eval harness publishes Hit@1 and Hit@5 on a pinned public sample.",
+        "The Apache-2.0 local CLI is the pin. A hosted Team control plane is not this public tree."
+      ],
+      "decisions": [
+        "Local-first privacy by default: no cloud account is required to search.",
+        "Eval is a product feature. Public sample BM25 is published and rerunnable.",
+        "The flattering maintainer private-corpus suite is not the number a hiring manager can replay.",
+        "Open-core boundary: free local CLI versus hosted control plane."
+      ],
+      "run_demo": "go install github.com/nstranquist/docs-puller@latest && docs-puller demo",
+      "talking_points": [
+        "Lead AI-infrastructure pin: retrieval plus release discipline.",
+        "Public BM25 sample reached 95.8% Hit@1 and 100% Hit@5 on pinned public pages.",
+        "Say sample eval, not a universal industry benchmark.",
+        "Apache-2.0 CLI. Do not claim the hosted Team plane is open source."
+      ],
+      "claim_ids": [
+        "docs-puller.open-source",
+        "docs-puller.public-eval",
+        "independent.local-products"
+      ],
+      "practices": [
+        {
+          "id": "explain-local-first",
+          "kind": "explain",
+          "prompt": "Explain why docs-puller is local-first and how retrieval quality is proven in public.",
+          "expected_concepts": [
+            "local-first",
+            "sqlite",
+            "fts5",
+            "bm25",
+            "eval",
+            "hit@1"
+          ],
+          "claim_ids": [
+            "docs-puller.public-eval"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the exact public install and demo command you would run to prove docs-puller without a private corpus.",
+          "expected_concepts": [
+            "docs-puller",
+            "demo",
+            "go install"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "defend-sample-eval",
+          "kind": "defend",
+          "prompt": "Defend the public retrieval claim. Name the metric, the mode, and the honesty boundary.",
+          "expected_concepts": [
+            "95.8%",
+            "sample",
+            "bm25",
+            "hit@1"
+          ],
+          "claim_ids": [
+            "docs-puller.public-eval"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "nicos-catalog",
+      "name": "Nicos Catalog",
+      "purpose": "A portable Go software-catalog engine. A host supplies folder layout and data plugins. The engine validates records, indexes them, searches with BM25, builds a relationship graph, and fails a drift check when the catalog no longer matches the source files.",
+      "architecture": [
+        "A small Provider interface injects records from YAML, JSON, Markdown, or static fixtures.",
+        "The engine validates typed entities, rejects duplicate IDs, and builds a relationship graph.",
+        "Derived state is byte-deterministic.",
+        "Drift fails closed when the index no longer matches source.",
+        "ProjectPublic emits a closed export that cannot encode private host fields."
+      ],
+      "decisions": [
+        "Provider and layout injection so the core stays portable.",
+        "Closed public projection instead of filtering a private index after the fact.",
+        "Fail-closed drift as an operational check, not a dashboard suggestion.",
+        "Host policy, valuation, and personal telemetry stay out of the public core."
+      ],
+      "run_demo": "go install github.com/nstranquist/nicos-catalog/cmd/nicos-catalog@latest && nicos-catalog demo",
+      "talking_points": [
+        "Public Apache-2.0 engine, not the factory host.",
+        "Local production work indexes a 3,400+ entity corpus. That is a local-verified claim, not a SaaS customer count.",
+        "Demo entities are synthetic fixtures. The engine boundary is real.",
+        "Do not discuss host-only money models or private telemetry in a public interview."
+      ],
+      "claim_ids": [
+        "catalog.local-engine",
+        "catalog.entity-scale",
+        "independent.local-products"
+      ],
+      "practices": [
+        {
+          "id": "explain-portable-core",
+          "kind": "explain",
+          "prompt": "Explain the portable-core versus host-policy split and why drift fails closed.",
+          "expected_concepts": [
+            "provider",
+            "portable",
+            "drift",
+            "fail-closed",
+            "public"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the public install and demo command for Nicos Catalog.",
+          "expected_concepts": [
+            "nicos-catalog",
+            "demo",
+            "go install"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "openbook",
+      "name": "Openbook",
+      "purpose": "A TypeScript, React, and Convex realtime social application: identity, a friend graph, an audience-scoped feed, reactions, comments, notifications, and messages.",
+      "architecture": [
+        "A React client talks to a Convex backend over reactive queries.",
+        "Visibility is enforced in one server function used by feed and profile queries.",
+        "Friendships and conversations are keyed by a sorted pair key.",
+        "Reaction and comment tallies move in the same mutation transaction as the child row.",
+        "Shared typed contracts cross the backend and the web app."
+      ],
+      "decisions": [
+        "Server-side visibility so a hidden post never reaches a client.",
+        "Pair-keyed relationships make request, accept, and DM-open idempotent.",
+        "Transaction-exact counters instead of eventually consistent likes.",
+        "Reactive queries instead of sockets or polling."
+      ],
+      "run_demo": "pnpm install && pnpm selfhost",
+      "talking_points": [
+        "Full-stack pin beside docs-puller's AI-infrastructure story.",
+        "Audience boundaries live on the server, not only in the browser.",
+        "MIT public repository with a local self-hosted Convex path.",
+        "Do not invent engagement percentages or user counts."
+      ],
+      "claim_ids": [
+        "openbook.open-source",
+        "openbook.realtime-product",
+        "independent.local-products"
+      ],
+      "practices": [
+        {
+          "id": "explain-server-visibility",
+          "kind": "explain",
+          "prompt": "Explain how Openbook keeps friends-only posts off unauthorized clients.",
+          "expected_concepts": [
+            "server",
+            "visibility",
+            "convex",
+            "friends",
+            "transaction"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the local self-host command path from the public README.",
+          "expected_concepts": [
+            "pnpm",
+            "selfhost",
+            "convex"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "agent-ops",
+      "name": "agent-ops",
+      "purpose": "Local records of what an AI agent did on a machine. Seven receipt-backed questions: what it did, saw, may call, said, proved, how good the review is, and what is running now.",
+      "architecture": [
+        "trace parses Claude Code and Codex session JSONL into a SQLite FTS5 index.",
+        "context emits budgeted hydration plus a receipt of included, omitted, and truncated chunks.",
+        "mcp evaluates server and tool pairs against a YAML policy and appends a JSONL audit line.",
+        "claims fail closed when a quantity is not on the allowlist.",
+        "evidence packs bind required paths to digest-backed manifests.",
+        "bench scores a reviewer against gold labels.",
+        "fleet merges slot files into one board."
+      ],
+      "decisions": [
+        "Every answer is a local file, not a model claim about itself.",
+        "Missing evidence is a failure.",
+        "A policy deny exits non-zero so a shell guard can compose it.",
+        "Pure Go SQLite, no cgo."
+      ],
+      "run_demo": "go install github.com/nstranquist/agent-ops/cmd/agent-ops@latest && agent-ops trace discover --limit 20",
+      "talking_points": [
+        "Proof is a receipt you can open later.",
+        "Do not let the model grade its own work.",
+        "This CLI is not the factory control-plane telemetry stack.",
+        "Fail-closed number checks stop unmeasured speed-up claims."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-receipts",
+          "kind": "explain",
+          "prompt": "Explain why agent-ops stores receipts instead of asking the model to score itself.",
+          "expected_concepts": [
+            "receipt",
+            "local",
+            "fail-closed",
+            "trace",
+            "claims"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the public install and a first trace-discovery command.",
+          "expected_concepts": [
+            "agent-ops",
+            "trace",
+            "discover"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "keepawake",
+      "name": "keepawake",
+      "purpose": "A small macOS-only power-state helper for deliberate closed-lid work. It combines pmset disablesleep with a managed caffeinate process so a Mac can keep running while the lid is closed.",
+      "architecture": [
+        "on records the prior SleepDisabled setting before it changes the system.",
+        "A persistent caffeinate process is tracked with start identity, not only a PID.",
+        "Commands serialize on a lock. Failed transitions try to roll back.",
+        "status is read-only and reports ON, OFF, or PARTIAL.",
+        "off restores the recorded prior setting instead of assuming sleep was enabled."
+      ],
+      "decisions": [
+        "Restore the prior power setting. Do not guess.",
+        "Refuse to signal a reused or unrelated process.",
+        "Old records without prior state fail safe and may stay PARTIAL.",
+        "off is part of the product because a closed lid has worse airflow."
+      ],
+      "run_demo": "keepawake status",
+      "talking_points": [
+        "Native and systems breadth. It is not the hiring lead pin.",
+        "macOS only. Do not claim Linux or Windows support.",
+        "Always run keepawake off when finished.",
+        "Do not invent battery-hour or thermal outcome numbers."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-restore-prior-state",
+          "kind": "explain",
+          "prompt": "Explain the keepawake safety model: prior state, PID identity, and why off matters.",
+          "expected_concepts": [
+            "pmset",
+            "caffeinate",
+            "prior",
+            "pid",
+            "off"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the read-only command that reports ON, OFF, or PARTIAL.",
+          "expected_concepts": [
+            "keepawake",
+            "status"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "jobkit",
+      "name": "JobKit",
+      "purpose": "A local-first Go job-search toolkit in one binary: trusted YAML profile, eligibility, saved searches, inbox, JD parse, fit scoring, tailored materials, an append-only tracker, and an evidence-linked interview coach.",
+      "architecture": [
+        "Human-authored state is strict YAML. Machine contracts are versioned JSON. History is append-only JSONL.",
+        "Deterministic scoring is authoritative. Optional model feedback is advisory.",
+        "Coach import accepts public-scope evidence only and rejects private paths.",
+        "Study curriculum for the six job-search pins is embedded and separate from JD-tied decks.",
+        "Synthetic public fixtures stay separate from operator state."
+      ],
+      "decisions": [
+        "Go and the standard library first. One binary.",
+        "Do not build another broad personal job-search CLI.",
+        "The claims gate fails closed on an untraceable number.",
+        "The localhost UI calls the same score and progress functions as the CLI."
+      ],
+      "run_demo": "jobkit help --compact && jobkit coach study",
+      "talking_points": [
+        "Public MIT CLI. Never publish operator state.",
+        "Coach study is the ordered pin rehearsal. Coach deck remains JD-tied interview practice.",
+        "Do not invent application outcome percentages.",
+        "This is not resume-suite and not a host-only money model."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-deterministic-coach",
+          "kind": "explain",
+          "prompt": "Explain how JobKit keeps interview claims honest and why study lives on the coach surface.",
+          "expected_concepts": [
+            "deterministic",
+            "claims",
+            "public",
+            "coach",
+            "study"
+          ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the JobKit command that lists the pin modules and the next incomplete practice.",
+          "expected_concepts": [
+            "jobkit",
+            "coach",
+            "study"
+          ],
+          "pass_threshold": 70
+        }
+      ]
+    }
+  ]
+}

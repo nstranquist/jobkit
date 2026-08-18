@@ -18,6 +18,9 @@ func TestCommandIDOmitArguments(t *testing.T) {
 	if got := CommandID([]string{"coach", "serve", "private-path"}); got != "coach.serve" {
 		t.Fatalf("CommandID = %q", got)
 	}
+	if got := CommandID([]string{"coach", "study", "--module", "docs-puller"}); got != "coach.study" {
+		t.Fatalf("CommandID = %q", got)
+	}
 	if got := CommandID([]string{"unknown-command", "secret"}); got != "unknown" {
 		t.Fatalf("CommandID = %q", got)
 	}

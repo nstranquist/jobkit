@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nstranquist/jobkit/internal/coach"
 )
 
 func TestCoachCLIFlow(t *testing.T) {
@@ -58,6 +60,52 @@ func TestCoachCLIFlow(t *testing.T) {
 	}
 	if len(sessions) != 1 {
 		t.Fatalf("sessions = %d, want 1", len(sessions))
+	}
+}
+
+func TestCoachStudyCLILaunchResumeAndClaims(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("JOBKIT_HOME", root)
+	cur, err := coach.LoadCurriculum()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, practice, err := cur.Practice("docs-puller", "explain-local-first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer := strings.Join(practice.ExpectedConcepts, " ") + " because the local-first constraint required a measured eval."
+	args := []string{"coach", "study", "--module", "docs-puller", "--practice", "explain-local-first", "--answer", answer, "--json"}
+	if err := cmdCoach(parseArgs(args)); err != nil {
+		t.Fatalf("first launch: %v", err)
+	}
+	store, err := coachStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := store.StudyResults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || !results[0].Passed || results[0].ModuleID != "docs-puller" {
+		t.Fatalf("first results = %+v", results)
+	}
+	if err := cmdCoach(parseArgs(args)); err != nil {
+		t.Fatalf("second launch: %v", err)
+	}
+	results, err = store.StudyResults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 || !results[1].Passed {
+		t.Fatalf("second results = %+v", results)
+	}
+	next := coach.NextIncomplete(cur, results)
+	if next == nil || next.Prompt == "" || next.PracticeID == "explain-local-first" {
+		t.Fatalf("next after resume = %+v", next)
+	}
+	if err := cmdCoach(parseArgs([]string{"coach", "study", "claims", "--json"})); err != nil {
+		t.Fatalf("claims: %v", err)
 	}
 }
 
