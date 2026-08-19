@@ -7,7 +7,11 @@
     "openbook",
     "agent-ops",
     "keepawake",
-    "jobkit"
+    "jobkit",
+    "session-pressure",
+    "hidden-bar",
+    "claimguard",
+    "wip-commit"
   ],
   "claims": [
     {
@@ -57,6 +61,7 @@
     {
       "id": "docs-puller",
       "name": "docs-puller",
+      "track": "hiring",
       "purpose": "Local-first documentation retrieval for engineers and AI agents. Mirror vendor and project docs to Markdown, index them with SQLite FTS5, search on the machine, and prove quality with a rerunnable public BM25 sample eval.",
       "architecture": [
         "Docs sources crawl or mirror into a Markdown corpus.",
@@ -214,12 +219,39 @@
           ],
           "expected_concepts": ["additive", "bm25"],
           "pass_threshold": 70
+        },
+        {
+          "id": "quiz-markdown-corpus",
+          "kind": "quiz",
+          "prompt": "What does docs-puller store locally before search?",
+          "choices": [
+            "A live HTML crawl only",
+            "A Markdown corpus mirrored from vendor and project docs",
+            "Screenshots of every page",
+            "A hosted vector DB"
+          ],
+          "expected_concepts": ["markdown", "corpus"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-pure-go",
+          "kind": "quiz",
+          "prompt": "How is the SQLite driver chosen?",
+          "choices": [
+            "cgo libsqlite",
+            "A pure Go SQLite driver",
+            "A cloud hosted SQLite",
+            "Postgres foreign data wrapper"
+          ],
+          "expected_concepts": ["pure", "go"],
+          "pass_threshold": 70
         }
       ]
     },
     {
       "id": "nicos-catalog",
       "name": "Nicos Catalog",
+      "track": "hiring",
       "purpose": "A portable Go software-catalog engine. A host supplies folder layout and data plugins. The engine validates records, indexes them, searches with BM25, builds a relationship graph, and fails a drift check when the catalog no longer matches the source files.",
       "architecture": [
         "A small Provider interface injects records from YAML, JSON, Markdown, or static fixtures.",
@@ -349,6 +381,7 @@
     {
       "id": "openbook",
       "name": "Openbook",
+      "track": "hiring",
       "purpose": "A TypeScript, React, and Convex realtime social application: identity, a friend graph, an audience-scoped feed, reactions, comments, notifications, and messages.",
       "architecture": [
         "A React client talks to a Convex backend over reactive queries.",
@@ -477,6 +510,7 @@
     {
       "id": "agent-ops",
       "name": "agent-ops",
+      "track": "agent",
       "purpose": "Local records of what an AI agent did on a machine. Seven receipt-backed questions: what it did, saw, may call, said, proved, how good the review is, and what is running now.",
       "architecture": [
         "trace parses Claude Code and Codex session JSONL into a SQLite FTS5 index.",
@@ -603,6 +637,7 @@
     {
       "id": "keepawake",
       "name": "keepawake",
+      "track": "systems",
       "purpose": "A small macOS-only power-state helper for deliberate closed-lid work. It combines pmset disablesleep with a managed caffeinate process so a Mac can keep running while the lid is closed.",
       "architecture": [
         "on records the prior SleepDisabled setting before it changes the system.",
@@ -726,6 +761,7 @@
     {
       "id": "jobkit",
       "name": "JobKit",
+      "track": "hiring",
       "purpose": "A local-first Go job-search toolkit in one binary: trusted YAML profile, eligibility, saved searches, inbox, JD parse, fit scoring, tailored materials, an append-only tracker, and an evidence-linked interview coach.",
       "architecture": [
         "Human-authored state is strict YAML. Machine contracts are versioned JSON. History is append-only JSONL.",
@@ -843,6 +879,435 @@
           "kind": "recall",
           "prompt": "Name the three state shapes JobKit uses for humans, machines, and history.",
           "expected_concepts": ["yaml", "json", "jsonl"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-study-ui",
+          "kind": "quiz",
+          "prompt": "What is allowed to score a pin-study attempt?",
+          "choices": [
+            "A TypeScript rubric in the Next app",
+            "JobKit coach study. The UI is presentation only",
+            "A hosted LMS",
+            "The model grading itself"
+          ],
+          "expected_concepts": ["jobkit", "study"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "session-pressure",
+      "name": "SessionPressure",
+      "track": "agent",
+      "purpose": "Local host admission and work coordination for many concurrent coding agents on one Mac. Extracted open-core. ndev session pressure is a compatibility wrapper around this CLI.",
+      "architecture": [
+        "Samples CPU, memory, swap, and fail-open thermal and low-power signals.",
+        "Admits or defers work through a weighted queue.",
+        "Identifies Claude, Codex, Grok, and Kimi process trees.",
+        "Watches internal-SSD write pressure.",
+        "Ships a resident helper, a local opt-in API, and a thin native macOS client."
+      ],
+      "decisions": [
+        "Public product owns sampling, policy, coordinator, identity, SSD watchdog, doctor, helper, CLI, API, and the Swift client.",
+        "Factory wrap, toolguard, and reclaim providers stay out of the public tree.",
+        "doctor is observe-only. policy enable is the first command that can block launches.",
+        "Do not copy a live state directory into issues or fixtures."
+      ],
+      "run_demo": "git clone https://github.com/nstranquist/session-pressure.git && make init && ./bin/session-pressure --json doctor",
+      "talking_points": [
+        "Systems story for concurrent agents on one machine.",
+        "Open-core extract. Not the factory ndev binary.",
+        "Observe first. Enable is an explicit step.",
+        "Do not invent throughput percentages."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-admission",
+          "kind": "explain",
+          "prompt": "Explain what SessionPressure admits or defers and why that is local.",
+          "expected_concepts": ["admission", "queue", "local", "agent"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the observe-only doctor command after a source build.",
+          "expected_concepts": ["session-pressure", "doctor"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-doctor",
+          "kind": "quiz",
+          "prompt": "Does doctor enable admission blocks?",
+          "choices": [
+            "Yes, doctor always blocks red hosts",
+            "No. doctor is observe-only",
+            "Only if swap is high",
+            "Only on Linux"
+          ],
+          "expected_concepts": ["observe"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-enable",
+          "kind": "quiz",
+          "prompt": "Which command is the first that can block launches?",
+          "choices": [
+            "doctor",
+            "policy enable",
+            "snapshot",
+            "make init"
+          ],
+          "expected_concepts": ["policy", "enable"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-identity",
+          "kind": "quiz",
+          "prompt": "Which agent hosts can SessionPressure identify?",
+          "choices": [
+            "Only systemd units",
+            "Claude, Codex, Grok, and Kimi process trees",
+            "Only Chrome tabs",
+            "Only Docker containers"
+          ],
+          "expected_concepts": ["claude", "codex"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-open-core",
+          "kind": "quiz",
+          "prompt": "What stays out of the public SessionPressure tree?",
+          "choices": [
+            "The Swift client",
+            "Factory wrap, toolguard, and reclaim providers",
+            "The doctor command",
+            "The weighted queue"
+          ],
+          "expected_concepts": ["factory", "toolguard"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-state",
+          "kind": "quiz",
+          "prompt": "Should you paste a live SessionPressure state directory into a GitHub issue?",
+          "choices": [
+            "Yes, for support",
+            "No. Live state stays off issues and fixtures",
+            "Yes, if you gzip it",
+            "Only the policy file"
+          ],
+          "expected_concepts": ["no", "live"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-signals",
+          "kind": "recall",
+          "prompt": "Name two host signals SessionPressure samples.",
+          "expected_concepts": ["cpu", "memory"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "hidden-bar",
+      "name": "Nicos Hidden Bar",
+      "track": "systems",
+      "purpose": "A native macOS menu-bar organizer for hiding status items you do not need all the time. Local-first. No account or network service. Swift, AppKit, and SwiftUI.",
+      "architecture": [
+        "Three regions: visible, hidden, and optionally always hidden.",
+        "A compact chevron reveals or collapses hidden items.",
+        "Notch support lists overflow items in a searchable panel.",
+        "JSON configuration and diagnostics stay on the Mac."
+      ],
+      "decisions": [
+        "No Dock icon during normal use.",
+        "No account and no network service.",
+        "Experimental item movement stays behind an explicit safety toggle.",
+        "Launch at login uses macOS Service Management."
+      ],
+      "run_demo": "git clone https://github.com/nstranquist/nicos-hidden-menubar.git && make install",
+      "talking_points": [
+        "Native and systems breadth next to keepawake.",
+        "Public repository. Do not claim it is the hiring lead pin.",
+        "macOS 14 or newer.",
+        "Do not invent download counts."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-regions",
+          "kind": "explain",
+          "prompt": "Explain the three menu-bar regions and the notch overflow panel.",
+          "expected_concepts": ["visible", "hidden", "notch", "panel"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the source install command for Nicos Hidden Bar.",
+          "expected_concepts": ["make", "install"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-network",
+          "kind": "quiz",
+          "prompt": "Does Hidden Bar require an account or network service?",
+          "choices": [
+            "Yes, iCloud",
+            "No. It is local-first with no account or network service",
+            "Yes, a license server",
+            "Only for notch mode"
+          ],
+          "expected_concepts": ["local-first", "no"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-notch",
+          "kind": "quiz",
+          "prompt": "How does Hidden Bar handle the laptop camera notch?",
+          "choices": [
+            "It disables the menu bar",
+            "It lists overflow items in a searchable panel",
+            "It requires a third-party notch app",
+            "It is Intel-only"
+          ],
+          "expected_concepts": ["overflow", "panel"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-stack",
+          "kind": "quiz",
+          "prompt": "What is Hidden Bar built with?",
+          "choices": [
+            "Electron",
+            "Swift, AppKit, and SwiftUI",
+            "Qt",
+            "React Native"
+          ],
+          "expected_concepts": ["swift"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-macos",
+          "kind": "quiz",
+          "prompt": "What is the minimum macOS version?",
+          "choices": [
+            "macOS 11",
+            "macOS 14 Sonoma or newer",
+            "macOS 10.15",
+            "Any Darwin"
+          ],
+          "expected_concepts": ["sonoma"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-safety",
+          "kind": "quiz",
+          "prompt": "Where does experimental item movement live?",
+          "choices": [
+            "On by default",
+            "Behind an explicit safety toggle",
+            "In a cloud flag",
+            "It is removed"
+          ],
+          "expected_concepts": ["safety", "toggle"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-chevron",
+          "kind": "recall",
+          "prompt": "What UI control reveals or collapses hidden status items?",
+          "expected_concepts": ["chevron"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "claimguard",
+      "name": "ClaimGuard",
+      "track": "agent",
+      "purpose": "A fail-closed verified-claims gate for AI-generated text. Unallowlisted quantified claims are violations.",
+      "architecture": [
+        "A pure Go claim lexer plus a YAML allowlist.",
+        "JSON report with ok and violations of token plus context.",
+        "Exit code 1 when ok is false.",
+        "make gate runs unit tests plus bad-must-fail and good-must-pass."
+      ],
+      "decisions": [
+        "Reject LLM judges. They are not deterministic.",
+        "Reject bash regex scripts as the product.",
+        "Fail closed. Missing allowlist entries are violations.",
+        "CI runs make gate on push and pull request."
+      ],
+      "run_demo": "go test ./... && make gate",
+      "talking_points": [
+        "Same honesty idea as JobKit claims, as a small gate.",
+        "Deterministic. Do not let the model grade the claim.",
+        "Do not invent a hosted ClaimGuard SaaS."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-fail-closed",
+          "kind": "explain",
+          "prompt": "Explain why ClaimGuard fails closed on unallowlisted quantities.",
+          "expected_concepts": ["fail-closed", "allowlist", "quantified"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the make target that is the primary gate.",
+          "expected_concepts": ["make", "gate"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-judge",
+          "kind": "quiz",
+          "prompt": "Why not use an LLM as the claims judge?",
+          "choices": [
+            "LLMs are cheaper",
+            "LLM judges are not deterministic",
+            "YAML cannot store numbers",
+            "Go cannot parse text"
+          ],
+          "expected_concepts": ["deterministic"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-exit",
+          "kind": "quiz",
+          "prompt": "What happens when a draft has a violation?",
+          "choices": [
+            "Exit zero with a warning",
+            "JSON report ok=false and exit 1",
+            "The file is deleted",
+            "A model rewrites the number"
+          ],
+          "expected_concepts": ["ok", "exit"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-stack",
+          "kind": "quiz",
+          "prompt": "What is ClaimGuard implemented in?",
+          "choices": [
+            "Python regex",
+            "Pure Go lexer plus YAML allowlist",
+            "TypeScript Zod only",
+            "A hosted API"
+          ],
+          "expected_concepts": ["go", "yaml"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-report",
+          "kind": "recall",
+          "prompt": "Name the two fields on a ClaimGuard violation.",
+          "expected_concepts": ["token", "context"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "wip-commit",
+      "name": "wip-commit",
+      "track": "agent",
+      "purpose": "Lets concurrent agents capture exact staged subsets without moving the shared checkout HEAD or rewriting its Git index. Each agent writes to a local ref under refs/heads/wip.",
+      "architecture": [
+        "Path leases stop overlapping path claims.",
+        "A private index holds only the planned staged entries.",
+        "Compare-and-swap updates the agent ref after commit groups pass.",
+        "One coordination domain per repository. Standalone and legacy Nicos domains conflict."
+      ],
+      "decisions": [
+        "Do not commit directly to the checked-out branch from an agent lane.",
+        "Review and landing are separate from capture.",
+        "The skill uses the public wip command and typed JSON evidence.",
+        "The current candidate is a local beta. Do not claim a stable public release if the module is not published."
+      ],
+      "run_demo": "go build -trimpath -o ./bin/wip ./cmd/wip && ./bin/wip version",
+      "talking_points": [
+        "This is how parallel agents share one dirty checkout.",
+        "It is a local beta candidate. Do not invent stars or a public install URL if the module is not live.",
+        "Do not weaken path-ownership or no-landing rules."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-leases",
+          "kind": "explain",
+          "prompt": "Explain why path leases and a private index exist.",
+          "expected_concepts": ["lease", "index", "parallel", "head"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the local build and version commands.",
+          "expected_concepts": ["go build", "wip", "version"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-head",
+          "kind": "quiz",
+          "prompt": "Does a wip capture move the source checkout HEAD?",
+          "choices": [
+            "Yes, it always commits to main",
+            "No. It writes a local ref under refs/heads/wip",
+            "Yes, it force-pushes",
+            "It stashes the world"
+          ],
+          "expected_concepts": ["ref", "wip"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-landing",
+          "kind": "quiz",
+          "prompt": "Is landing part of capture?",
+          "choices": [
+            "Yes, capture merges to main",
+            "No. Review and landing are separate operations",
+            "Yes, if the lease is exclusive",
+            "Landing is automatic after 10 minutes"
+          ],
+          "expected_concepts": ["separate", "landing"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-domain",
+          "kind": "quiz",
+          "prompt": "How many coordination domains may one repository have?",
+          "choices": [
+            "One. A second domain is COORDINATION_DOMAIN_CONFLICT",
+            "One per agent",
+            "Unlimited",
+            "Two: git and hg"
+          ],
+          "expected_concepts": ["one", "conflict"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-honesty",
+          "kind": "quiz",
+          "prompt": "How should you describe wip-commit in an interview today?",
+          "choices": [
+            "A stable public GitHub product with a published module",
+            "A local beta for parallel agent commits. Do not invent a public install if it is not live",
+            "A hosted GitHub App",
+            "A replacement for git itself"
+          ],
+          "expected_concepts": ["beta", "local"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-ref",
+          "kind": "recall",
+          "prompt": "Where do agent lanes write their refs?",
+          "expected_concepts": ["refs/heads/wip"],
           "pass_threshold": 70
         }
       ]

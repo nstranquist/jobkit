@@ -84,6 +84,7 @@ type StudyClaim struct {
 type Module struct {
 	ID            string     `json:"id"`
 	Name          string     `json:"name"`
+	Track         string     `json:"track,omitempty"`
 	Purpose       string     `json:"purpose"`
 	Architecture  []string   `json:"architecture"`
 	Decisions     []string   `json:"decisions"`
@@ -149,6 +150,7 @@ type ModuleSummary struct {
 type ModuleView struct {
 	ID            string     `json:"id"`
 	Name          string     `json:"name"`
+	Track         string     `json:"track,omitempty"`
 	Purpose       string     `json:"purpose"`
 	Architecture  []string   `json:"architecture"`
 	Decisions     []string   `json:"decisions"`
@@ -315,8 +317,8 @@ func ValidateCurriculum(cur *Curriculum) error {
 		seenOrder[id] = true
 	}
 	if cur.ID == "job-search-oss-pins" {
-		if len(cur.Order) != len(RequiredPinIDs) {
-			return fmt.Errorf("shipped pin curriculum must list %d modules in order", len(RequiredPinIDs))
+		if len(cur.Order) < len(RequiredPinIDs) {
+			return fmt.Errorf("shipped pin curriculum must start with %d hiring pins", len(RequiredPinIDs))
 		}
 		for i, id := range RequiredPinIDs {
 			if cur.Order[i] != id {
@@ -553,6 +555,7 @@ func ViewModule(module Module) ModuleView {
 	return ModuleView{
 		ID:            module.ID,
 		Name:          module.Name,
+		Track:         module.Track,
 		Purpose:       module.Purpose,
 		Architecture:  append([]string(nil), module.Architecture...),
 		Decisions:     append([]string(nil), module.Decisions...),
