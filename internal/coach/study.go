@@ -477,7 +477,8 @@ func ScorePractice(module Module, practice Practice, answer string, claimsByID m
 	score := scaledFraction(len(covered), total, 100)
 	violations := claims.Check(answer, allowedClaimTexts(module, practice, claimsByID))
 	dump := dumpSensitive(practice.Kind) && isConceptDump(answer, practice.ExpectedConcepts)
-	passed := score >= threshold && len(violations) == 0 && !dump
+	thin := dumpSensitive(practice.Kind) && !dump && isThinExplain(answer, practice.ExpectedConcepts)
+	passed := score >= threshold && len(violations) == 0 && !dump && !thin
 	verdict := "fail"
 	switch {
 	case len(violations) > 0:
@@ -485,6 +486,9 @@ func ScorePractice(module Module, practice Practice, answer string, claimsByID m
 		passed = false
 	case dump:
 		verdict = "dump"
+		passed = false
+	case thin:
+		verdict = "thin"
 		passed = false
 	case passed:
 		verdict = "pass"
@@ -764,26 +768,43 @@ func dumpSensitive(kind PracticeKind) bool {
 	}
 }
 
-func isConceptDump(answer string, concepts []string) bool {
-	answerWords := wordList(strings.ToLower(answer))
-	if len(answerWords) == 0 {
-		return false
-	}
-	conceptWords := map[string]bool{}
+const minExplainExtraWords = 8
+
+func conceptWordSet(concepts []string) map[string]bool {
+	out := map[string]bool{}
 	for _, concept := range uniqueLower(append([]string(nil), concepts...)) {
 		for _, word := range wordList(concept) {
-			conceptWords[word] = true
+			out[word] = true
 		}
 	}
-	if len(conceptWords) == 0 {
+	return out
+}
+
+func extraWordCount(answer string, concepts []string) int {
+	conceptWords := conceptWordSet(concepts)
+	extra := 0
+	for _, word := range wordList(strings.ToLower(answer)) {
+		if !conceptWords[word] {
+			extra++
+		}
+	}
+	return extra
+}
+
+func isConceptDump(answer string, concepts []string) bool {
+	answerWords := wordList(strings.ToLower(answer))
+	if len(answerWords) == 0 || len(conceptWordSet(concepts)) == 0 {
 		return false
 	}
-	for _, word := range answerWords {
-		if !conceptWords[word] {
-			return false
-		}
+	return extraWordCount(answer, concepts) == 0
+}
+
+func isThinExplain(answer string, concepts []string) bool {
+	if strings.TrimSpace(answer) == "" || len(conceptWordSet(concepts)) == 0 {
+		return false
 	}
-	return true
+	extra := extraWordCount(answer, concepts)
+	return extra > 0 && extra < minExplainExtraWords
 }
 
 func wordList(s string) []string {

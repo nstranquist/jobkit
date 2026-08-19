@@ -385,7 +385,7 @@ func TestServerStudyUsesSameScoreAndProgress(t *testing.T) {
 	}
 	payload, err := json.Marshal(studyAttemptRequest{
 		ModuleID: "docs-puller", PracticeID: "explain-local-first",
-		Text: strings.Join(practice.ExpectedConcepts, " ") + " because the eval is public.",
+		Text: matchingAnswer(practice),
 	})
 	if err != nil {
 		t.Fatal(err)

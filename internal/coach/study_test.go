@@ -43,6 +43,10 @@ func TestShippedExplainDumpFailsAndContextPasses(t *testing.T) {
 	if dump.Passed || dump.Verdict != "dump" {
 		t.Fatalf("dump = %+v", dump)
 	}
+	thin := ScorePractice(module, practice, dumpAnswer(practice)+" because architecture", cur.ClaimMap())
+	if thin.Passed || thin.Verdict != "thin" {
+		t.Fatalf("thin = %+v", thin)
+	}
 	explain := ScorePractice(module, practice, matchingAnswer(practice), cur.ClaimMap())
 	if !explain.Passed || explain.Score < practice.PassThreshold {
 		t.Fatalf("explain = %+v", explain)
@@ -165,6 +169,10 @@ func TestScorePracticeMatchMismatchAndClaimReject(t *testing.T) {
 	dump := ScorePractice(module, practice, dumpAnswer(practice), cur.ClaimMap())
 	if dump.Passed || dump.Verdict != "dump" {
 		t.Fatalf("concept dump was not rejected: %+v", dump)
+	}
+	thin := ScorePractice(module, practice, dumpAnswer(practice)+" because architecture", cur.ClaimMap())
+	if thin.Passed || thin.Verdict != "thin" {
+		t.Fatalf("thin explain was not rejected: %+v", thin)
 	}
 }
 

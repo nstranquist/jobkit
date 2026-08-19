@@ -76,7 +76,7 @@ func TestCoachStudyCLILaunchResumeAndClaims(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	answer := strings.Join(practice.ExpectedConcepts, " ") + " because the local-first constraint required a measured eval."
+	answer := "The honest product path uses " + strings.Join(practice.ExpectedConcepts, ", ") + " because that is how the public tree actually ships."
 	args := []string{"coach", "study", "--module", "docs-puller", "--practice", "explain-local-first", "--answer", answer, "--json"}
 	if err := cmdCoach(parseArgs(args)); err != nil {
 		t.Fatalf("first launch: %v", err)
