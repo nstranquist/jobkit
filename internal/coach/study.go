@@ -1,5 +1,5 @@
-// Study mode teaches the six job-search OSS pins in a fixed order and scores
-// practice attempts deterministically on the existing Coach surface.
+// Study mode teaches hiring-pin OSS courses plus extra honest OSS modules and
+// scores practice attempts deterministically on the existing Coach surface.
 package coach
 
 import (
@@ -475,11 +475,15 @@ func ScorePractice(module Module, practice Practice, answer string, claimsByID m
 	total := len(uniqueLower(append([]string(nil), practice.ExpectedConcepts...)))
 	score := scaledFraction(len(covered), total, 100)
 	violations := claims.Check(answer, allowedClaimTexts(module, practice, claimsByID))
-	passed := score >= threshold && len(violations) == 0
+	dump := dumpSensitive(practice.Kind) && isConceptDump(answer, practice.ExpectedConcepts)
+	passed := score >= threshold && len(violations) == 0 && !dump
 	verdict := "fail"
 	switch {
 	case len(violations) > 0:
 		verdict = "claim_rejected"
+		passed = false
+	case dump:
+		verdict = "dump"
 		passed = false
 	case passed:
 		verdict = "pass"
@@ -692,6 +696,59 @@ func ClaimTrace(cur *Curriculum) []ClaimTraceRow {
 		}
 	}
 	return rows
+}
+
+func dumpSensitive(kind PracticeKind) bool {
+	switch kind {
+	case PracticeExplain, PracticeRecall, PracticeDefend:
+		return true
+	default:
+		return false
+	}
+}
+
+func isConceptDump(answer string, concepts []string) bool {
+	answerWords := wordList(strings.ToLower(answer))
+	if len(answerWords) == 0 {
+		return false
+	}
+	conceptWords := map[string]bool{}
+	for _, concept := range uniqueLower(append([]string(nil), concepts...)) {
+		for _, word := range wordList(concept) {
+			conceptWords[word] = true
+		}
+	}
+	if len(conceptWords) == 0 {
+		return false
+	}
+	for _, word := range answerWords {
+		if !conceptWords[word] {
+			return false
+		}
+	}
+	return true
+}
+
+func wordList(s string) []string {
+	var b strings.Builder
+	var out []string
+	flush := func() {
+		w := strings.Trim(b.String(), ".,;:!?\"'")
+		b.Reset()
+		if w != "" {
+			out = append(out, w)
+		}
+	}
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '@', r == '%', r == '+', r == '-':
+			b.WriteRune(r)
+		default:
+			flush()
+		}
+	}
+	flush()
+	return out
 }
 
 func compactHistory(results []StudyResult) []HistoryItem {

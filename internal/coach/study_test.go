@@ -1,6 +1,7 @@
 package coach
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,11 @@ import (
 )
 
 func matchingAnswer(practice Practice) string {
-	return strings.Join(practice.ExpectedConcepts, " ") + " because the architecture and constraint made that the honest path."
+	return "The honest product path uses " + strings.Join(practice.ExpectedConcepts, ", ") + " because that is how the public tree actually ships."
+}
+
+func dumpAnswer(practice Practice) string {
+	return strings.Join(practice.ExpectedConcepts, " ")
 }
 
 func loadTwoModuleFixture(t *testing.T) *Curriculum {
@@ -23,6 +28,64 @@ func loadTwoModuleFixture(t *testing.T) *Curriculum {
 		t.Fatal(err)
 	}
 	return cur
+}
+
+func TestShippedExplainDumpFailsAndContextPasses(t *testing.T) {
+	cur, err := LoadCurriculum()
+	if err != nil {
+		t.Fatal(err)
+	}
+	module, practice, err := cur.Practice("docs-puller", "explain-local-first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dump := ScorePractice(module, practice, dumpAnswer(practice), cur.ClaimMap())
+	if dump.Passed || dump.Verdict != "dump" {
+		t.Fatalf("dump = %+v", dump)
+	}
+	explain := ScorePractice(module, practice, matchingAnswer(practice), cur.ClaimMap())
+	if !explain.Passed || explain.Score < practice.PassThreshold {
+		t.Fatalf("explain = %+v", explain)
+	}
+}
+
+func TestShippedCurriculumIncludesHonestExtraOSS(t *testing.T) {
+	cur, err := LoadCurriculum()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	raw, _ := json.Marshal(cur)
+	blob := string(raw)
+	for _, module := range cur.OrderedModules() {
+		ids[module.ID] = true
+	}
+	if !ids["snapref"] {
+		t.Fatal("snapref course missing")
+	}
+	if !ids["nicos-dj"] || !ids["agenttrace"] {
+		t.Fatal("honest extra courses missing")
+	}
+	if strings.Contains(blob, "github.com/nstranquist/nicos-dj") {
+		t.Fatal("nicos-dj must not invent a GitHub remote")
+	}
+	if strings.Contains(blob, "github.com/nstranquist/pageskein") {
+		t.Fatal("pageskein must not be a fake GitHub pin")
+	}
+	dj, err := cur.Module("nicos-dj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ToLower(dj.Purpose+dj.RunDemo), "phase 0") {
+		t.Fatal("nicos-dj must state Phase 0 / no public remote")
+	}
+	sr, err := cur.Module("snapref")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ToLower(strings.Join(sr.TalkingPoints, " ")), "pageskein") {
+		t.Fatal("snapref must name pageskein as the extract, not a second pin")
+	}
 }
 
 func TestShippedCurriculumLoadsSixPinsInStableOrder(t *testing.T) {
@@ -97,6 +160,11 @@ func TestScorePracticeMatchMismatchAndClaimReject(t *testing.T) {
 	unsafe := ScorePractice(module, practice, matchingAnswer(practice)+" We improved 47% delivery.", cur.ClaimMap())
 	if unsafe.Passed || unsafe.Verdict != "claim_rejected" || len(unsafe.ClaimViolations) == 0 {
 		t.Fatalf("untraceable claim was not rejected: %+v", unsafe)
+	}
+
+	dump := ScorePractice(module, practice, dumpAnswer(practice), cur.ClaimMap())
+	if dump.Passed || dump.Verdict != "dump" {
+		t.Fatalf("concept dump was not rejected: %+v", dump)
 	}
 }
 

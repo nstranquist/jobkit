@@ -11,7 +11,10 @@
     "session-pressure",
     "hidden-bar",
     "claimguard",
-    "wip-commit"
+    "wip-commit",
+    "snapref",
+    "nicos-dj",
+    "agenttrace"
   ],
   "claims": [
     {
@@ -1308,6 +1311,245 @@
           "kind": "recall",
           "prompt": "Where do agent lanes write their refs?",
           "expected_concepts": ["refs/heads/wip"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "snapref",
+      "name": "SnapRef",
+      "track": "agent",
+      "purpose": "A dependency-light, local-first browser automation core for agents: isolated sessions, interactive snapshots with revision-bound executable refs, typed actuation, scripts, policy-gated MCP, and managed runtimes. Public at github.com/nstranquist/snapref. PageSkein is the in-tree extract; SnapRef is the public product, not a second GitHub pin.",
+      "architecture": [
+        "Named sessions with crash-safe idle leases.",
+        "Snapshots emit revision-bound refs. Act on the newest ref.",
+        "auto never launches the operator personal browser. Managed Chrome for Testing or Headless Shell only after verify.",
+        "Runtime install is the only browser command that downloads."
+      ],
+      "decisions": [
+        "Headless is the default.",
+        "Talk about SnapRef as the kernel under the host adapter, not a second brand.",
+        "Windows is not advertised until a physical Windows plus Chrome gate passes.",
+        "PageSkein stays the extract name. Do not invent a second public remote."
+      ],
+      "run_demo": "go install github.com/nstranquist/snapref/cmd/snapref@v0.2.0-rc.1 && snapref self-test",
+      "talking_points": [
+        "Public GitHub: nstranquist/snapref.",
+        "pageskein is the extract inside the factory tree. SnapRef is the public course.",
+        "Never launch a personal Chrome binary for agent automation.",
+        "Do not invent a second pageskein remote."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-kernel",
+          "kind": "explain",
+          "prompt": "Explain SnapRef versus pageskein and why personal Chrome is forbidden.",
+          "expected_concepts": ["snapref", "pageskein", "managed", "personal"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the public install and self-test commands.",
+          "expected_concepts": ["snapref", "self-test"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-personal-chrome",
+          "kind": "quiz",
+          "prompt": "May SnapRef auto-search the operator personal Chrome install?",
+          "choices": [
+            "Yes, it finds Chrome.app",
+            "No. auto uses only verified managed runtimes",
+            "Yes, in headful mode always",
+            "Only on Linux"
+          ],
+          "expected_concepts": ["managed", "no"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-refs",
+          "kind": "quiz",
+          "prompt": "What do SnapRef snapshots emit for clicks?",
+          "choices": [
+            "CSS selectors only",
+            "Revision-bound executable refs",
+            "XPath from the personal profile",
+            "Screenshots without refs"
+          ],
+          "expected_concepts": ["ref", "revision"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-pageskein",
+          "kind": "quiz",
+          "prompt": "What is pageskein in this story?",
+          "choices": [
+            "A second public GitHub product",
+            "The in-tree extract. SnapRef is the public product",
+            "A Chrome extension store listing",
+            "A hosted browser SaaS"
+          ],
+          "expected_concepts": ["extract", "snapref"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-runtime-install",
+          "kind": "quiz",
+          "prompt": "Which SnapRef command is allowed to download a browser?",
+          "choices": [
+            "open",
+            "runtime install",
+            "snapshot",
+            "self-test always downloads"
+          ],
+          "expected_concepts": ["runtime", "install"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-self-test",
+          "kind": "recall",
+          "prompt": "Name the SnapRef command that clicks delayed hydration, shadow roots, and iframes.",
+          "expected_concepts": ["self-test"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "nicos-dj",
+      "name": "Nicos DJ",
+      "track": "systems",
+      "purpose": "A planned public extract of a local DJ / live-set product. Phase 0 only. No extract tree. No public remote. Do not invent a GitHub remote.",
+      "architecture": [
+        "Phase 0 is a decision record, not a cloneable repo.",
+        "Extract target if later approved: a clean tree under the operator tools dir.",
+        "Pin slot is P2 prep. Do not jump the hiring-pin stack.",
+        "Phase 3 public create is human gh only."
+      ],
+      "decisions": [
+        "Honesty over a fake GitHub pin.",
+        "Do not claim a public install path.",
+        "Do not treat Phase 0 docs as a shipped CLI."
+      ],
+      "run_demo": "No public clone. Phase 0 extract only. Do not invent a GitHub remote.",
+      "talking_points": [
+        "Say Phase 0. Say no public remote.",
+        "Do not jump this onto the hiring pin grid.",
+        "A human, not an agent, would create the public remote later."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-phase-0",
+          "kind": "explain",
+          "prompt": "Explain Nicos DJ extract status and why there is no public clone.",
+          "expected_concepts": ["phase 0", "remote", "extract"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-remote",
+          "kind": "quiz",
+          "prompt": "Is there a public Nicos DJ GitHub remote today?",
+          "choices": [
+            "Yes, it is already a public GitHub repository",
+            "No. Phase 0. No public remote",
+            "Yes, it is on npm",
+            "Yes, it is a Homebrew cask"
+          ],
+          "expected_concepts": ["phase 0", "no"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-pin",
+          "kind": "quiz",
+          "prompt": "May Nicos DJ jump the hiring pin stack now?",
+          "choices": [
+            "Yes, replace docs-puller",
+            "No. P2 prep. Do not jump P1",
+            "Yes, if we invent a remote",
+            "It is already a P1 pin"
+          ],
+          "expected_concepts": ["p2", "jump"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-status",
+          "kind": "recall",
+          "prompt": "Name the extract phase Nicos DJ is in.",
+          "expected_concepts": ["phase 0"],
+          "pass_threshold": 70
+        }
+      ]
+    },
+    {
+      "id": "agenttrace",
+      "name": "agenttrace",
+      "track": "agent",
+      "purpose": "A local-first MIT CLI for tracing agent sessions. Canonical source is the local tools tree until a public GitHub remote exists. Do not claim a live go install from GitHub if the remote is unpublished.",
+      "architecture": [
+        "Local install: make install to the operator bin dir.",
+        "Public go install path is documented for when the remote exists.",
+        "Hosted multi-tenant control planes stay out of this tree."
+      ],
+      "decisions": [
+        "MIT local CLI. Hosted planes stay proprietary.",
+        "Honesty: local until the remote exists.",
+        "make publish-ready before any share."
+      ],
+      "run_demo": "make install && agenttrace version",
+      "talking_points": [
+        "Say local MIT CLI. Say the GitHub install is only when the remote exists.",
+        "Do not invent a public star count.",
+        "Do not paste live session files."
+      ],
+      "claim_ids": [],
+      "practices": [
+        {
+          "id": "explain-local",
+          "kind": "explain",
+          "prompt": "Explain agenttrace distribution status versus a live public module.",
+          "expected_concepts": ["local", "remote", "mit"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "run-demo",
+          "kind": "demo",
+          "prompt": "Name the local install path for agenttrace today.",
+          "expected_concepts": ["make", "install"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-install",
+          "kind": "quiz",
+          "prompt": "What is the honest install story today?",
+          "choices": [
+            "Always go install github.com/nstranquist/agenttrace@latest",
+            "make install locally. Public go install only when the remote exists",
+            "npm i -g agenttrace",
+            "It is a hosted SaaS"
+          ],
+          "expected_concepts": ["make", "remote"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-license",
+          "kind": "quiz",
+          "prompt": "What is the local CLI license?",
+          "choices": [
+            "Proprietary only",
+            "MIT for the local CLI",
+            "AGPL",
+            "Unlicensed"
+          ],
+          "expected_concepts": ["mit"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-boundary",
+          "kind": "recall",
+          "prompt": "What stays out of the agenttrace tree?",
+          "expected_concepts": ["hosted", "control"],
           "pass_threshold": 70
         }
       ]
