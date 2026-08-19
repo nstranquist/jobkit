@@ -1,16 +1,52 @@
-schema_version: 1
+schema_version: 2
 product_id: product.jobkit
-visibility: internal
+visibility: public
 reviewed: true
+presentation:
+    summary: An offline, agent-native job-search toolkit with explicit evidence and review gates.
+    detail: Turn a trusted profile and job description into eligibility decisions, fit scores, tailored materials, reviewed apply packages, tracking records, and interview drills. Public proof uses synthetic fixtures and never publishes private job-search state.
+    language: Go
+    lane: Career tooling and applied AI workflows
+access:
+    profile: go-cli
+    primary_action:
+        kind: install
+        label: Install JobKit
+        url: https://github.com/nstranquist/jobkit#quick-start
+    repository_url: https://github.com/nstranquist/jobkit
+    documentation_url: https://github.com/nstranquist/jobkit#user-guide
+    feedback_url: https://github.com/nstranquist/jobkit/issues/new
+    module: github.com/nstranquist/jobkit
+    binary: jobkit
+    smoke_argv: [go, run, ./cmd/jobkit, --help]
+proof:
+    claims:
+        - id: deterministic-fit
+          statement: Eligibility rules and fit scoring remain deterministic and explainable before optional model feedback.
+          evidence_kind: documentation
+          evidence_url: https://github.com/nstranquist/jobkit#design-notes
+        - id: agent-json-contract
+          statement: Agent-facing commands use stable JSON envelopes and per-run telemetry.
+          evidence_kind: documentation
+          evidence_url: https://github.com/nstranquist/jobkit#agent-contract
+    boundaries:
+        - Public fixtures are synthetic; personal profiles, job descriptions, and application history remain private.
+        - Generated application materials require human review before use.
 assets:
     - path: portfolio/assets/tailored-resume.png
       kind: screenshot
       alt: JobKit generated ATS-safe tailored resume
       caption: A real HTML resume generated from JobKit's fictional example profile and job description.
+      public: true
+      provenance: local-synthetic-fixture-capture
+      copyright_owner: Nico Stranquist
     - path: screenshots/user-guide.png
       kind: screenshot
       alt: JobKit user guide
       caption: The single-file local user guide at 1440x900.
+      public: true
+      provenance: local-documentation-capture
+      copyright_owner: Nico Stranquist
     - path: assets/brand/jobkit.svg
       kind: logo
       alt: jobkit application icon
