@@ -99,12 +99,16 @@ const (
 	PracticeExplain PracticeKind = "explain"
 	PracticeDemo    PracticeKind = "demo"
 	PracticeDefend  PracticeKind = "defend"
+	PracticeQuiz    PracticeKind = "quiz"
+	PracticeRecall  PracticeKind = "recall"
 )
 
 type Practice struct {
 	ID               string       `json:"id"`
 	Kind             PracticeKind `json:"kind"`
 	Prompt           string       `json:"prompt"`
+	Choices          []string     `json:"choices,omitempty"`
+	Hint             string       `json:"hint,omitempty"`
 	ExpectedConcepts []string     `json:"expected_concepts"`
 	ClaimIDs         []string     `json:"claim_ids,omitempty"`
 	PassThreshold    int          `json:"pass_threshold"`
@@ -154,8 +158,19 @@ type ModuleView struct {
 	Practices     []Practice `json:"practices"`
 }
 
+type HistoryItem struct {
+	ModuleID    string    `json:"module_id"`
+	PracticeID  string    `json:"practice_id"`
+	Score       int       `json:"score"`
+	Passed      bool      `json:"passed"`
+	Verdict     string    `json:"verdict"`
+	CompletedAt time.Time `json:"completed_at"`
+}
+
 type StudyReport struct {
 	Modules []ModuleSummary `json:"modules"`
+	Bank    []ModuleView    `json:"bank,omitempty"`
+	History []HistoryItem   `json:"history,omitempty"`
 	Module  *ModuleView     `json:"module,omitempty"`
 	Attempt *PracticeScore  `json:"attempt,omitempty"`
 	Next    *StudyItem      `json:"next,omitempty"`
@@ -262,9 +277,12 @@ func ValidateCurriculum(cur *Curriculum) error {
 			}
 			seenPractice[practice.ID] = true
 			switch practice.Kind {
-			case PracticeExplain, PracticeDemo, PracticeDefend:
+			case PracticeExplain, PracticeDemo, PracticeDefend, PracticeQuiz, PracticeRecall:
 			default:
 				return fmt.Errorf("study practice %s/%s has unknown kind %q", id, practice.ID, practice.Kind)
+			}
+			if practice.Kind == PracticeQuiz && len(practice.Choices) < 2 {
+				return fmt.Errorf("study practice %s/%s quiz needs at least two choices", id, practice.ID)
 			}
 			if len(uniqueLower(append([]string(nil), practice.ExpectedConcepts...))) == 0 {
 				return fmt.Errorf("study practice %s/%s needs expected concepts", id, practice.ID)
@@ -566,7 +584,13 @@ func LaunchCurriculum(store *Store, cur *Curriculum, opts LaunchOptions) (*Study
 	}
 	report := &StudyReport{
 		Modules: SummarizeModules(cur, results),
+		History: compactHistory(results),
 		Next:    NextIncomplete(cur, results),
+	}
+	if strings.TrimSpace(opts.ModuleID) == "" && strings.TrimSpace(opts.Answer) == "" {
+		for _, module := range cur.OrderedModules() {
+			report.Bank = append(report.Bank, ViewModule(module))
+		}
 	}
 	if opts.ModuleID != "" {
 		module, err := cur.Module(opts.ModuleID)
@@ -623,6 +647,7 @@ func LaunchCurriculum(store *Store, cur *Curriculum, opts LaunchOptions) (*Study
 	}
 	view := ViewModule(module)
 	report.Modules = SummarizeModules(cur, results)
+	report.History = compactHistory(results)
 	report.Module = &view
 	report.Attempt = &score
 	report.Next = NextIncomplete(cur, results)
@@ -664,6 +689,21 @@ func ClaimTrace(cur *Curriculum) []ClaimTraceRow {
 		}
 	}
 	return rows
+}
+
+func compactHistory(results []StudyResult) []HistoryItem {
+	out := make([]HistoryItem, 0, len(results))
+	for _, result := range results {
+		out = append(out, HistoryItem{
+			ModuleID:    result.ModuleID,
+			PracticeID:  result.PracticeID,
+			Score:       result.Score,
+			Passed:      result.Passed,
+			Verdict:     result.Verdict,
+			CompletedAt: result.CompletedAt,
+		})
+	}
+	return out
 }
 
 func firstIncompleteInModule(cur *Curriculum, moduleID string, results []StudyResult) string {

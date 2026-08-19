@@ -126,6 +126,94 @@
             "docs-puller.public-eval"
           ],
           "pass_threshold": 70
+        },
+        {
+          "id": "quiz-index",
+          "kind": "quiz",
+          "prompt": "What local index does docs-puller use for search?",
+          "choices": [
+            "A hosted Elasticsearch cluster",
+            "SQLite FTS5 on the machine",
+            "A Pinecone vector store",
+            "Postgres with pgvector only"
+          ],
+          "hint": "The CLI is local-first and uses a pure Go SQLite driver.",
+          "expected_concepts": ["sqlite", "fts5"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-bm25-role",
+          "kind": "quiz",
+          "prompt": "What is the honest public retrieval floor in docs-puller?",
+          "choices": [
+            "A private embedding model with no published numbers",
+            "BM25 on a pinned public sample, with optional rerank later",
+            "Hosted Team RAG as the default",
+            "Hit@1 on MTEB"
+          ],
+          "expected_concepts": ["bm25", "sample"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-open-core",
+          "kind": "quiz",
+          "prompt": "What is open source versus not, for docs-puller?",
+          "choices": [
+            "The hosted Team control plane is Apache-2.0",
+            "The local CLI is Apache-2.0; the hosted Team plane is not this pin",
+            "Every Nicos factory service is public",
+            "Only the web UI is public"
+          ],
+          "expected_concepts": ["cli", "team"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-no-account",
+          "kind": "quiz",
+          "prompt": "Does a hiring-manager demo of docs-puller need a cloud account?",
+          "choices": [
+            "Yes, an OpenAI key is required",
+            "No. Local-first search needs no cloud account",
+            "Yes, a Turso account is required",
+            "Only if you use the public sample"
+          ],
+          "expected_concepts": ["local-first", "no"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-sample-honesty",
+          "kind": "quiz",
+          "prompt": "A recruiter says 'you hit 95.8% Hit@1 everywhere.' What is the honest reply?",
+          "choices": [
+            "Yes, that is a universal IR benchmark",
+            "That is the public BM25 sample on pinned pages, not a general benchmark",
+            "Ignore the number and talk about valuation",
+            "It is 100% Hit@1 on every corpus"
+          ],
+          "expected_concepts": ["sample", "bm25"],
+          "claim_ids": ["docs-puller.public-eval"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-demo-contract",
+          "kind": "recall",
+          "prompt": "What command proves docs-puller after a public install?",
+          "hint": "The README smoke is a single verb.",
+          "expected_concepts": ["docs-puller", "demo"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-rerank",
+          "kind": "quiz",
+          "prompt": "How should you describe embeddings and LLM rerank in docs-puller?",
+          "choices": [
+            "They replace BM25 as the public floor",
+            "They are additive upgrades. BM25 stays the honest public floor",
+            "They are required for the demo",
+            "They are the Team control plane"
+          ],
+          "expected_concepts": ["additive", "bm25"],
+          "pass_threshold": 70
         }
       ]
     },
@@ -181,6 +269,79 @@
             "demo",
             "go install"
           ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-provider",
+          "kind": "quiz",
+          "prompt": "How does a host feed records into Nicos Catalog?",
+          "choices": [
+            "By opening the SQLite file and inserting rows by hand",
+            "Through a Provider interface that injects records",
+            "By posting to a hosted control plane",
+            "By scraping GitHub only"
+          ],
+          "expected_concepts": ["provider"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-drift",
+          "kind": "quiz",
+          "prompt": "What happens when the catalog no longer matches source files?",
+          "choices": [
+            "A warning is logged and the process continues",
+            "Drift fails closed",
+            "The engine silently rebuilds from memory",
+            "Valuation numbers are frozen"
+          ],
+          "expected_concepts": ["drift", "fail"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-public-export",
+          "kind": "quiz",
+          "prompt": "Why is ProjectPublic a closed export?",
+          "choices": [
+            "So private host fields cannot leak after the fact",
+            "So valuation can be published",
+            "So query text can be stored",
+            "So source paths stay in the public JSON"
+          ],
+          "expected_concepts": ["private", "public"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-scale-honesty",
+          "kind": "quiz",
+          "prompt": "How should you talk about the 3,400+ entity corpus?",
+          "choices": [
+            "As a SaaS customer count",
+            "As a local-verified production corpus, not a SaaS customer count",
+            "As a public cloud SLA",
+            "As a valuation multiple"
+          ],
+          "expected_concepts": ["local", "corpus"],
+          "claim_ids": ["catalog.entity-scale"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-demo-fixtures",
+          "kind": "quiz",
+          "prompt": "What is true of the public catalog demo?",
+          "choices": [
+            "Entities are synthetic fixtures. The engine boundary is real",
+            "The demo dumps factory telemetry",
+            "The demo requires a cloud account",
+            "The demo is the hosted Team plane"
+          ],
+          "expected_concepts": ["synthetic", "engine"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-search",
+          "kind": "recall",
+          "prompt": "What search model does the catalog engine use?",
+          "expected_concepts": ["bm25"],
           "pass_threshold": 70
         }
       ]
@@ -238,6 +399,78 @@
             "convex"
           ],
           "pass_threshold": 70
+        },
+        {
+          "id": "quiz-visibility-where",
+          "kind": "quiz",
+          "prompt": "Where is friends-only visibility enforced?",
+          "choices": [
+            "Only in the React client",
+            "On the Convex server, in one visibility function",
+            "In a CDN edge worker only",
+            "In CSS"
+          ],
+          "expected_concepts": ["server", "convex"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-pair-key",
+          "kind": "quiz",
+          "prompt": "How are friendships and conversations keyed?",
+          "choices": [
+            "By the first user to click",
+            "By a sorted pair key so accept and DM-open are idempotent",
+            "By email address only",
+            "By a random nonce each request"
+          ],
+          "expected_concepts": ["pair", "idempotent"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-tallies",
+          "kind": "quiz",
+          "prompt": "How do reaction tallies stay exact?",
+          "choices": [
+            "They are eventually consistent likes",
+            "They move in the same mutation transaction as the child row",
+            "The client increments a cookie",
+            "A cron job recounts hourly"
+          ],
+          "expected_concepts": ["transaction"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-no-polling",
+          "kind": "quiz",
+          "prompt": "How does the client stay live?",
+          "choices": [
+            "WebSockets you write by hand",
+            "Reactive Convex queries, not polling",
+            "A one-second fetch loop",
+            "Server-sent events from Next.js"
+          ],
+          "expected_concepts": ["reactive", "convex"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-license",
+          "kind": "quiz",
+          "prompt": "What license is the public Openbook repository?",
+          "choices": [
+            "GPL-3.0",
+            "MIT",
+            "Proprietary",
+            "AGPL"
+          ],
+          "expected_concepts": ["mit"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-stack",
+          "kind": "recall",
+          "prompt": "Name the client and backend pair for Openbook.",
+          "expected_concepts": ["react", "convex"],
+          "pass_threshold": 70
         }
       ]
     },
@@ -292,6 +525,78 @@
             "discover"
           ],
           "pass_threshold": 70
+        },
+        {
+          "id": "quiz-seven",
+          "kind": "quiz",
+          "prompt": "What kind of answers does agent-ops return?",
+          "choices": [
+            "A model score about itself",
+            "Local files: traces, receipts, audits, digests",
+            "A hosted dashboard only",
+            "A chat transcript with no files"
+          ],
+          "expected_concepts": ["local", "receipt"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-claims-gate",
+          "kind": "quiz",
+          "prompt": "What does agent-ops claims do?",
+          "choices": [
+            "Lets the model invent speed-up numbers",
+            "Fails closed when a quantity is not on the allowlist",
+            "Uploads drafts to a SaaS fact-check API",
+            "Rewrites the resume automatically"
+          ],
+          "expected_concepts": ["fail", "allowlist"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-mcp-deny",
+          "kind": "quiz",
+          "prompt": "How does an MCP deny compose into a shell guard?",
+          "choices": [
+            "It always exits zero",
+            "A deny exits non-zero",
+            "It emails the operator",
+            "It writes only to stderr and exits zero"
+          ],
+          "expected_concepts": ["deny", "non-zero"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-not-factory",
+          "kind": "quiz",
+          "prompt": "Is agent-ops the factory control-plane telemetry stack?",
+          "choices": [
+            "Yes, they are the same binary",
+            "No. This CLI is local receipts, not the factory control plane",
+            "Yes, if you set an env var",
+            "Only on Linux"
+          ],
+          "expected_concepts": ["local", "not"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-sqlite",
+          "kind": "quiz",
+          "prompt": "How is the trace index stored?",
+          "choices": [
+            "cgo SQLite",
+            "Pure Go SQLite FTS5",
+            "Redis",
+            "Postgres only"
+          ],
+          "expected_concepts": ["sqlite", "fts5"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-trace",
+          "kind": "recall",
+          "prompt": "Which agent-ops verb answers 'what did it do?'",
+          "expected_concepts": ["trace"],
+          "pass_threshold": 70
         }
       ]
     },
@@ -342,6 +647,78 @@
             "keepawake",
             "status"
           ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-platform",
+          "kind": "quiz",
+          "prompt": "Where does keepawake run?",
+          "choices": [
+            "Linux systemd only",
+            "macOS only",
+            "Windows and Linux",
+            "Any Unix"
+          ],
+          "expected_concepts": ["macos"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-prior",
+          "kind": "quiz",
+          "prompt": "What does keepawake restore on off?",
+          "choices": [
+            "It always enables sleep",
+            "The recorded prior SleepDisabled setting",
+            "A random power profile",
+            "Nothing; off is a no-op"
+          ],
+          "expected_concepts": ["prior"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-pid",
+          "kind": "quiz",
+          "prompt": "Why is the PID record more than a number?",
+          "choices": [
+            "So off can signal a reused process",
+            "Start identity is stored so off refuses a reused PID",
+            "So launchd can restart it",
+            "So it can tweet the PID"
+          ],
+          "expected_concepts": ["identity", "pid"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-airflow",
+          "kind": "quiz",
+          "prompt": "Why is off part of the product?",
+          "choices": [
+            "A closed lid has worse airflow",
+            "macOS requires it for App Store review",
+            "It saves a log file",
+            "It is only a joke command"
+          ],
+          "expected_concepts": ["airflow", "off"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-status-values",
+          "kind": "quiz",
+          "prompt": "What can keepawake status report?",
+          "choices": [
+            "ON, OFF, or PARTIAL",
+            "Only ON",
+            "A battery-hour estimate",
+            "A thermal graph"
+          ],
+          "expected_concepts": ["on", "off", "partial"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-tools",
+          "kind": "recall",
+          "prompt": "Name the two system tools keepawake combines.",
+          "expected_concepts": ["pmset", "caffeinate"],
           "pass_threshold": 70
         }
       ]
@@ -394,6 +771,78 @@
             "coach",
             "study"
           ],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-authority",
+          "kind": "quiz",
+          "prompt": "What is authoritative in JobKit coach scoring?",
+          "choices": [
+            "The hosted model",
+            "Deterministic scoring. Model feedback is advisory",
+            "The operator's vibe",
+            "A remote LMS"
+          ],
+          "expected_concepts": ["deterministic", "advisory"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-claims-fail",
+          "kind": "quiz",
+          "prompt": "What happens to an untraceable number in JobKit?",
+          "choices": [
+            "It is rounded away",
+            "The claims gate fails closed",
+            "It is posted to LinkedIn",
+            "It is stored as a win"
+          ],
+          "expected_concepts": ["claims", "fail"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-not-second-cli",
+          "kind": "quiz",
+          "prompt": "Should you build another broad personal job-search CLI?",
+          "choices": [
+            "Yes, one per framework",
+            "No. JobKit is the one golden-path toolkit",
+            "Yes, if it is written in Rust",
+            "Yes, as a mobile app first"
+          ],
+          "expected_concepts": ["one", "jobkit"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-study-vs-deck",
+          "kind": "quiz",
+          "prompt": "What is coach study versus coach deck?",
+          "choices": [
+            "They are the same command",
+            "Study is ordered pin rehearsal. Deck is JD-tied interview practice",
+            "Study submits applications",
+            "Deck publishes the profile"
+          ],
+          "expected_concepts": ["study", "deck"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "quiz-state",
+          "kind": "quiz",
+          "prompt": "Where does operator JobKit state live?",
+          "choices": [
+            "In a public GitHub gist",
+            "In the operator-owned local state directory, never published",
+            "In the Next.js bundle",
+            "In a hosted LMS"
+          ],
+          "expected_concepts": ["local", "never"],
+          "pass_threshold": 70
+        },
+        {
+          "id": "recall-stack",
+          "kind": "recall",
+          "prompt": "Name the three state shapes JobKit uses for humans, machines, and history.",
+          "expected_concepts": ["yaml", "json", "jsonl"],
           "pass_threshold": 70
         }
       ]
