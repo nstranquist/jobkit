@@ -34,6 +34,21 @@ func TestMintModuleProducesValidDiscriminatingQuiz(t *testing.T) {
 	if quiz == nil {
 		t.Fatal("mint produced no quiz")
 	}
+	quizCount := 0
+	seenPrompt := map[string]bool{}
+	for _, draft := range drafts {
+		if draft.Practice.Kind != PracticeQuiz {
+			continue
+		}
+		quizCount++
+		if seenPrompt[draft.Practice.Prompt] {
+			t.Fatalf("duplicate minted prompt %q", draft.Practice.Prompt)
+		}
+		seenPrompt[draft.Practice.Prompt] = true
+	}
+	if quizCount < 2 {
+		t.Fatalf("mint produced %d quizzes, want at least 2 unique prompts", quizCount)
+	}
 	if err := validateMintedPractice(cur, "docs-puller", *quiz); err != nil {
 		t.Fatalf("minted quiz failed curriculum validate: %v", err)
 	}

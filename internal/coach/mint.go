@@ -147,7 +147,7 @@ func quizFromLine(module Module, line string, all []string, index int) (Practice
 	return Practice{
 		ID:               "mint-" + module.ID + "-" + hex.EncodeToString(sum[:])[:12],
 		Kind:             PracticeQuiz,
-		Prompt:           fmt.Sprintf("Which statement is true of %s?", module.Name),
+		Prompt:           fmt.Sprintf("Which statement is true of %s (%s)?", module.Name, concepts[0]),
 		Choices:          choices,
 		ExpectedConcepts: concepts,
 		PassThreshold:    70,
