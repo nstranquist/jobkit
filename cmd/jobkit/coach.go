@@ -379,7 +379,7 @@ func cmdCoachStudy(c *cli) error {
 	}
 	moduleID := strings.TrimSpace(c.str("module"))
 	practiceID := strings.TrimSpace(c.str("practice"))
-	if moduleID == "" && action != "" && action != "list" && action != "show" && action != "attempt" && action != "next" && action != "status" && action != "claims" && action != "launch" {
+	if moduleID == "" && action != "" && action != "list" && action != "show" && action != "attempt" && action != "next" && action != "status" && action != "claims" && action != "launch" && action != "mint" && action != "drafts" && action != "promote" {
 		moduleID = action
 		action = "show"
 	}
@@ -388,6 +388,61 @@ func cmdCoachStudy(c *cli) error {
 		return envelope.New(envelope.CodeInvalidArgs, err.Error())
 	}
 	switch action {
+	case "mint":
+		if moduleID == "" && len(c.args) > 3 {
+			moduleID = c.args[3]
+		}
+		if moduleID == "" {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study mint --module ID [--apply] [--dry-run]")
+		}
+		result, err := coach.MintToStore(store, moduleID, c.bool("apply"), c.bool("dry-run"), time.Now().UTC())
+		if err != nil {
+			return studyLaunchError(err)
+		}
+		if c.bool("json") {
+			envelope.EmitData(result)
+			return nil
+		}
+		fmt.Printf("minted %d drafts for %s (written=%d applied=%d)\n", len(result.Drafts), result.ModuleID, result.Written, result.Applied)
+		for _, draft := range result.Drafts {
+			fmt.Printf("  %s  %s\n", draft.ID, draft.Practice.Prompt)
+		}
+		return nil
+	case "drafts":
+		drafts, err := store.StudyDrafts()
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"drafts": drafts})
+			return nil
+		}
+		if len(drafts) == 0 {
+			fmt.Println("no study drafts")
+			return nil
+		}
+		for _, draft := range drafts {
+			fmt.Printf("%s  %s/%s  %s\n", draft.ID, draft.ModuleID, draft.Practice.Kind, draft.Practice.Prompt)
+		}
+		return nil
+	case "promote":
+		id := strings.TrimSpace(c.str("draft"))
+		if id == "" && len(c.args) > 3 {
+			id = c.args[3]
+		}
+		if id == "" {
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study promote --draft ID")
+		}
+		found, err := store.PromoteDraft(id)
+		if err != nil {
+			return studyLaunchError(err)
+		}
+		if c.bool("json") {
+			envelope.EmitData(found)
+			return nil
+		}
+		fmt.Printf("promoted %s into overlay\n", found.ID)
+		return nil
 	case "claims":
 		cur, err := coach.LoadCurriculum()
 		if err != nil {
@@ -415,15 +470,15 @@ func cmdCoachStudy(c *cli) error {
 		}
 	case "list", "next", "status", "launch", "":
 	default:
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study [list|show|attempt|next|status|claims]").WithHint("jobkit coach study --module docs-puller --answer \"...\" teaches, scores, and reports the next step")
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study [list|show|attempt|next|status|claims|mint|drafts|promote]").WithHint("jobkit coach study mint --module docs-puller --apply")
 	}
-	if action == "attempt" && moduleID == "" {
+	if action == "attempt" && moduleID == "" && strings.TrimSpace(c.str("draft")) == "" {
 		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study attempt <module> --answer TEXT|--answers FILE")
 	}
 	if action == "list" || action == "status" || action == "next" || action == "show" {
 		answer = ""
 	}
-	opts := coach.LaunchOptions{ModuleID: moduleID, PracticeID: practiceID, Answer: answer, Now: time.Now().UTC()}
+	opts := coach.LaunchOptions{ModuleID: moduleID, PracticeID: practiceID, DraftID: strings.TrimSpace(c.str("draft")), Answer: answer, Now: time.Now().UTC()}
 	if action == "next" {
 		opts = coach.LaunchOptions{}
 	}

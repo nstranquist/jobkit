@@ -181,6 +181,7 @@ type StudyReport struct {
 type LaunchOptions struct {
 	ModuleID   string
 	PracticeID string
+	DraftID    string
 	Answer     string
 	Now        time.Time
 }
@@ -571,7 +572,7 @@ func ViewModule(module Module) ModuleView {
 }
 
 func Launch(store *Store, opts LaunchOptions) (*StudyReport, error) {
-	cur, err := LoadCurriculum()
+	cur, err := LoadEffectiveCurriculum(store)
 	if err != nil {
 		return nil, err
 	}
@@ -608,6 +609,62 @@ func LaunchCurriculum(store *Store, cur *Curriculum, opts LaunchOptions) (*Study
 		report.Module = &view
 	}
 	if strings.TrimSpace(opts.Answer) == "" {
+		return report, nil
+	}
+	if draftID := strings.TrimSpace(opts.DraftID); draftID != "" {
+		drafts, err := store.StudyDrafts()
+		if err != nil {
+			return nil, err
+		}
+		var found *StudyDraft
+		for i := range drafts {
+			if drafts[i].ID == draftID {
+				found = &drafts[i]
+				break
+			}
+		}
+		if found == nil {
+			return nil, &LookupError{Kind: "practice", ID: draftID}
+		}
+		module, err := cur.Module(found.ModuleID)
+		if err != nil {
+			return nil, err
+		}
+		opts.ModuleID = found.ModuleID
+		opts.PracticeID = found.Practice.ID
+		if opts.Now.IsZero() {
+			opts.Now = time.Now().UTC()
+		}
+		score := ScorePractice(module, found.Practice, opts.Answer, cur.ClaimMap())
+		score.PracticeID = found.Practice.ID
+		record := StudyResult{
+			SchemaVersion:   StudySchemaVersion,
+			ModuleID:        score.ModuleID,
+			PracticeID:      score.PracticeID,
+			Kind:            score.Kind,
+			Answer:          opts.Answer,
+			Score:           score.Score,
+			Passed:          score.Passed,
+			Verdict:         score.Verdict,
+			CoveredConcepts: score.CoveredConcepts,
+			MissingConcepts: score.MissingConcepts,
+			ClaimViolations: score.ClaimViolations,
+			CompletedAt:     opts.Now.UTC(),
+		}
+		if err := store.AppendStudyResult(record); err != nil {
+			return nil, err
+		}
+		results, err = store.StudyResults()
+		if err != nil {
+			return nil, err
+		}
+		view := ViewModule(module)
+		view.Practices = append(view.Practices, found.Practice)
+		report.Modules = SummarizeModules(cur, results)
+		report.History = compactHistory(results)
+		report.Module = &view
+		report.Attempt = &score
+		report.Next = NextIncomplete(cur, results)
 		return report, nil
 	}
 	moduleID := strings.TrimSpace(opts.ModuleID)

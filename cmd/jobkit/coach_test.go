@@ -111,6 +111,42 @@ func TestCoachStudyCLILaunchResumeAndClaims(t *testing.T) {
 	}
 }
 
+func TestCoachStudyMintDryRunAndApply(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("JOBKIT_HOME", root)
+	if err := cmdCoach(parseArgs([]string{"coach", "study", "mint", "--module", "docs-puller", "--dry-run", "--json"})); err != nil {
+		t.Fatal(err)
+	}
+	store, err := coachStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	drafts, err := store.StudyDrafts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(drafts) != 0 {
+		t.Fatalf("dry-run persisted drafts: %d", len(drafts))
+	}
+	if err := cmdCoach(parseArgs([]string{"coach", "study", "mint", "--module", "docs-puller", "--apply", "--json"})); err != nil {
+		t.Fatal(err)
+	}
+	drafts, err = store.StudyDrafts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(drafts) == 0 {
+		t.Fatal("apply wrote no drafts")
+	}
+	overlay, err := store.StudyOverlay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(overlay.Practices) == 0 {
+		t.Fatal("apply wrote no overlay")
+	}
+}
+
 func TestCoachStudyListDoesNotRecordAnswer(t *testing.T) {
 	t.Setenv("JOBKIT_HOME", t.TempDir())
 	if err := cmdCoach(parseArgs([]string{"coach", "study", "list", "--answer", "should not record"})); err != nil {
