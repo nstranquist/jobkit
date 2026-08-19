@@ -179,6 +179,17 @@ func TestProgressAdvancesAndSecondLoadResumes(t *testing.T) {
 	}
 }
 
+func TestLaunchUnknownModuleIsLookup(t *testing.T) {
+	store, err := NewStore(filepath.Join(t.TempDir(), "coach"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Launch(store, LaunchOptions{ModuleID: "no-such-pin"})
+	if !IsLookup(err) {
+		t.Fatalf("unknown module err = %v, want LookupError", err)
+	}
+}
+
 func TestClaimTraceCoversExtractedTokens(t *testing.T) {
 	cur, err := LoadCurriculum()
 	if err != nil {

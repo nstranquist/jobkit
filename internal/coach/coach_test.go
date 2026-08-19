@@ -419,6 +419,21 @@ func TestServerStudyUsesSameScoreAndProgress(t *testing.T) {
 	}
 }
 
+func TestServerStudyUnknownModuleIsNotFound(t *testing.T) {
+	store, err := NewStore(filepath.Join(t.TempDir(), "coach"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/study/modules/no-such-pin", nil)
+	req.Host = "127.0.0.1:7331"
+	req.Header.Set("Authorization", "Bearer test-token")
+	rec := httptest.NewRecorder()
+	(&Server{Store: store, Token: "test-token"}).Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestServerRequiresTokenAndBootstrapsHttpOnlyCookie(t *testing.T) {
 	server := (&Server{Token: "test-token"}).Handler()
 	unauthorized := httptest.NewRequest(http.MethodGet, "/api/config", nil)

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -419,13 +420,16 @@ func cmdCoachStudy(c *cli) error {
 	if action == "attempt" && moduleID == "" {
 		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit coach study attempt <module> --answer TEXT|--answers FILE")
 	}
+	if action == "list" || action == "status" || action == "next" || action == "show" {
+		answer = ""
+	}
 	opts := coach.LaunchOptions{ModuleID: moduleID, PracticeID: practiceID, Answer: answer, Now: time.Now().UTC()}
 	if action == "next" {
 		opts = coach.LaunchOptions{}
 	}
 	report, err := coach.Launch(store, opts)
 	if err != nil {
-		return envelope.New(envelope.CodeInvalidArgs, err.Error())
+		return studyLaunchError(err)
 	}
 	if action == "show" && report.Module == nil {
 		return envelope.New(envelope.CodeNotFound, "study module is missing")
@@ -436,6 +440,17 @@ func cmdCoachStudy(c *cli) error {
 	}
 	printStudyReport(report)
 	return nil
+}
+
+func studyLaunchError(err error) error {
+	switch {
+	case errors.Is(err, coach.ErrStudyComplete), coach.IsLookup(err):
+		return envelope.New(envelope.CodeInvalidArgs, err.Error())
+	case os.IsNotExist(err), strings.Contains(err.Error(), "decode study result"), strings.Contains(err.Error(), "invalid study result"):
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	default:
+		return envelope.New(envelope.CodeInternal, err.Error())
+	}
 }
 
 func studyAnswer(c *cli) (string, error) {

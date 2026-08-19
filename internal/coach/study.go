@@ -6,6 +6,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -14,6 +15,30 @@ import (
 
 	"github.com/nstranquist/jobkit/internal/claims"
 )
+
+// ErrStudyComplete is returned when every pin practice already has a pass.
+var ErrStudyComplete = errors.New("all pin practices are complete")
+
+// LookupError is an unknown module or practice id.
+type LookupError struct {
+	Kind string
+	ID   string
+}
+
+func (e *LookupError) Error() string {
+	if e == nil {
+		return "unknown study item"
+	}
+	if e.Kind == "practice" {
+		return fmt.Sprintf("unknown study practice %s", e.ID)
+	}
+	return fmt.Sprintf("unknown study module %q", e.ID)
+}
+
+func IsLookup(err error) bool {
+	var lookup *LookupError
+	return errors.As(err, &lookup)
+}
 
 //go:embed curriculum.json
 var shippedCurriculumJSON []byte
@@ -359,7 +384,7 @@ func (c *Curriculum) Module(id string) (Module, error) {
 			return module, nil
 		}
 	}
-	return Module{}, fmt.Errorf("unknown study module %q", id)
+	return Module{}, &LookupError{Kind: "module", ID: id}
 }
 
 func (c *Curriculum) OrderedModules() []Module {
@@ -392,7 +417,7 @@ func (c *Curriculum) Practice(moduleID, practiceID string) (Module, Practice, er
 			return module, practice, nil
 		}
 	}
-	return Module{}, Practice{}, fmt.Errorf("unknown study practice %s/%s", moduleID, practiceID)
+	return Module{}, Practice{}, &LookupError{Kind: "practice", ID: moduleID + "/" + practiceID}
 }
 
 func (c *Curriculum) ClaimMap() map[string]StudyClaim {
@@ -558,7 +583,7 @@ func LaunchCurriculum(store *Store, cur *Curriculum, opts LaunchOptions) (*Study
 	practiceID := strings.TrimSpace(opts.PracticeID)
 	if moduleID == "" {
 		if report.Next == nil {
-			return nil, fmt.Errorf("all pin practices are complete")
+			return nil, ErrStudyComplete
 		}
 		moduleID = report.Next.ModuleID
 		practiceID = report.Next.PracticeID

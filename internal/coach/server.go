@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -360,7 +361,7 @@ func (s *Server) handleStudy(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleStudyModule(w http.ResponseWriter, r *http.Request) {
 	report, err := Launch(s.Store, LaunchOptions{ModuleID: r.PathValue("id")})
 	if err != nil {
-		writeAPIError(w, http.StatusBadRequest, err)
+		writeAPIError(w, studyHTTPStatus(err), err)
 		return
 	}
 	writeJSON(w, http.StatusOK, report)
@@ -387,7 +388,7 @@ func (s *Server) handleStudyAttempt(w http.ResponseWriter, r *http.Request) {
 		ModuleID: request.ModuleID, PracticeID: request.PracticeID, Answer: request.Text, Now: time.Now().UTC(),
 	})
 	if err != nil {
-		writeAPIError(w, http.StatusBadRequest, err)
+		writeAPIError(w, studyHTTPStatus(err), err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, report)
@@ -409,6 +410,17 @@ func (s *Server) handleStudyClaims(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"claims": ClaimTrace(cur)})
+}
+
+func studyHTTPStatus(err error) int {
+	switch {
+	case IsLookup(err):
+		return http.StatusNotFound
+	case errors.Is(err, ErrStudyComplete):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func writeAPIError(w http.ResponseWriter, status int, err error) {

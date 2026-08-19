@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/nstranquist/jobkit/internal/coach"
+	"github.com/nstranquist/jobkit/internal/envelope"
 )
 
 func TestCoachCLIFlow(t *testing.T) {
@@ -106,6 +108,33 @@ func TestCoachStudyCLILaunchResumeAndClaims(t *testing.T) {
 	}
 	if err := cmdCoach(parseArgs([]string{"coach", "study", "claims", "--json"})); err != nil {
 		t.Fatalf("claims: %v", err)
+	}
+}
+
+func TestCoachStudyListDoesNotRecordAnswer(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	if err := cmdCoach(parseArgs([]string{"coach", "study", "list", "--answer", "should not record"})); err != nil {
+		t.Fatal(err)
+	}
+	store, err := coachStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := store.StudyResults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("list recorded %d results", len(results))
+	}
+}
+
+func TestCoachStudyUnknownModuleIsInvalidArgs(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	err := cmdCoach(parseArgs([]string{"coach", "study", "show", "no-such-pin"}))
+	var cliErr *envelope.Err
+	if !errors.As(err, &cliErr) || cliErr.Code != envelope.CodeInvalidArgs {
+		t.Fatalf("err = %#v, want INVALID_ARGS", err)
 	}
 }
 
