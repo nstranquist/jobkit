@@ -14,7 +14,7 @@ access:
         label: Install JobKit
         url: https://github.com/nstranquist/jobkit#quick-start
     repository_url: https://github.com/nstranquist/jobkit
-    documentation_url: https://github.com/nstranquist/jobkit#user-guide
+    documentation_url: https://github.com/nstranquist/jobkit#what-it-does
     feedback_url: https://github.com/nstranquist/jobkit/issues/new
     module: github.com/nstranquist/jobkit
     binary: jobkit
