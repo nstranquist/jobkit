@@ -113,6 +113,140 @@ func TestDeveloperExperienceIsSoftwareEngineering(t *testing.T) {
 	}
 }
 
+func TestScalePublicSectorClearanceFailsClosed(t *testing.T) {
+	posting := Posting{
+		Title:    "Senior Mission Software Engineer, Public Sector",
+		Location: "St. Louis, MO",
+		Description: `Required
+* 5+ years of software engineering experience.
+* An active TS/SCI clearance.
+
+Bonus
+* Familiarity with Kubernetes and Terraform.
+
+Location and travel
+Expect 25% travel with up to 50% travel as necessary.`,
+	}
+	result := Evaluate(posting, testPolicy())
+	if result.Status != Ineligible || result.HardConstraintsVerified {
+		t.Fatalf("result = %#v, want fail-closed ineligible", result)
+	}
+	if !hasReason(result, "security_clearance_unverified") || !hasReason(result, "travel_exceeds_maximum") {
+		t.Fatalf("missing hard-constraint reasons: %#v", result.Reasons)
+	}
+	if !hasConstraint(result, ConstraintSecurityClearance, RequirementRequired, ConstraintUnverified) {
+		t.Fatalf("missing typed clearance evidence: %#v", result.Constraints)
+	}
+}
+
+func TestActiveClearanceSatisfiesRequiredClearance(t *testing.T) {
+	policy := testPolicy()
+	policy.Candidate.ActiveSecurityClearances = []string{"TS/SCI"}
+	result := Evaluate(Posting{
+		Title: "Forward Deployed Software Engineer", Location: "Remote - US", Remote: true,
+		Description: "Required\nAn active Secret security clearance.\nExpect 25% travel.",
+	}, policy)
+	if result.Status != Eligible || !result.HardConstraintsVerified {
+		t.Fatalf("result = %#v, want verified eligible", result)
+	}
+	if !hasConstraint(result, ConstraintSecurityClearance, RequirementRequired, ConstraintSatisfied) {
+		t.Fatalf("missing satisfied clearance: %#v", result.Constraints)
+	}
+}
+
+func TestPreferredClearanceDoesNotBlock(t *testing.T) {
+	result := Evaluate(Posting{
+		Title: "Platform Engineer", Location: "Remote - US", Remote: true,
+		Description: "Preferred qualifications\nActive Secret security clearance is a plus.",
+	}, testPolicy())
+	if result.Status != Eligible || !result.HardConstraintsVerified {
+		t.Fatalf("result = %#v, want eligible", result)
+	}
+	if !hasConstraint(result, ConstraintSecurityClearance, RequirementPreferred, ConstraintUnverified) {
+		t.Fatalf("missing preferred clearance: %#v", result.Constraints)
+	}
+}
+
+func TestCitizenshipAndAuthorizationRequireCandidateEvidence(t *testing.T) {
+	posting := Posting{
+		Title: "Software Engineer", Location: "Remote - US", Remote: true,
+		Description: "Requirements\nCandidates must be U.S. citizens.\nCandidates must be legally authorized to work in the United States.",
+	}
+	result := Evaluate(posting, testPolicy())
+	if result.Status != Ineligible || !hasReason(result, "citizenship_unverified") || !hasReason(result, "work_authorization_unverified") {
+		t.Fatalf("result = %#v, want both unverified constraints", result)
+	}
+	policy := testPolicy()
+	policy.Candidate.Citizenships = []string{"United States"}
+	policy.Candidate.WorkAuthorizations = []string{"United States"}
+	result = Evaluate(posting, policy)
+	if result.Status != Eligible || !result.HardConstraintsVerified {
+		t.Fatalf("result = %#v, want verified eligible", result)
+	}
+}
+
+func TestNoSponsorshipRequirementFailsClosedWhenUnknown(t *testing.T) {
+	posting := Posting{
+		Title: "Backend Engineer", Location: "Remote - US", Remote: true,
+		Description: "Requirements\nWe are unable to provide visa sponsorship for this role.",
+	}
+	result := Evaluate(posting, testPolicy())
+	if result.Status != Ineligible || !hasReason(result, "sponsorship_unverified") {
+		t.Fatalf("result = %#v, want sponsorship gate", result)
+	}
+	no := false
+	policy := testPolicy()
+	policy.Candidate.RequiresSponsorship = &no
+	result = Evaluate(posting, policy)
+	if result.Status != Eligible || !result.HardConstraintsVerified {
+		t.Fatalf("result = %#v, want verified eligible", result)
+	}
+}
+
+func TestRequirementSectionHeaders(t *testing.T) {
+	tests := map[string]requirementSection{
+		"Required":                 sectionRequired,
+		"Requirements":             sectionRequired,
+		"What we're looking for":   sectionRequired,
+		"Preferred qualifications": sectionPreferred,
+		"Bonus":                    sectionPreferred,
+		"Location and travel":      sectionUnknown,
+	}
+	for input, want := range tests {
+		got, ok := requirementSectionHeader(input)
+		if !ok || got != want {
+			t.Errorf("header %q = (%v, %v), want (%v, true)", input, got, ok, want)
+		}
+	}
+}
+
+func TestRequiredSectionMakesSponsorshipMandatory(t *testing.T) {
+	line := "We are unable to provide visa sponsorship for this role."
+	if got := levelForLine(line, sectionRequired); got != RequirementRequired {
+		t.Fatalf("level = %q, preferred match = %q, required match = %q", got, explicitPreferredPattern.FindString(line), explicitRequiredPattern.FindString(line))
+	}
+}
+
+func TestApplicationFormQuestionsAreNotRequirements(t *testing.T) {
+	result := Evaluate(Posting{
+		Title: "Software Engineer", Location: "Remote - US", Remote: true,
+		Description: "Are you legally authorized to work in the country where the job is located?\nWill you now or in the future require company sponsorship?",
+	}, testPolicy())
+	if result.Status != Eligible || len(result.Constraints) != 0 {
+		t.Fatalf("result = %#v, form questions must not become requirements", result)
+	}
+}
+
+func TestExplicitOnsiteRequirementOverridesRemoteHint(t *testing.T) {
+	result := Evaluate(Posting{
+		Title: "Platform Engineer", Location: "Remote - US", Remote: true,
+		Description: "This role requires on-site work with customers.",
+	}, testPolicy())
+	if result.WorkMode != "onsite" {
+		t.Fatalf("work mode = %q, want onsite", result.WorkMode)
+	}
+}
+
 func TestRoleFamilyClassification(t *testing.T) {
 	tests := map[string]string{
 		"Senior Product Engineer":             "software-engineering",
@@ -132,6 +266,15 @@ func TestRoleFamilyClassification(t *testing.T) {
 func hasReason(result Result, code string) bool {
 	for _, reason := range result.Reasons {
 		if reason.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func hasConstraint(result Result, kind ConstraintKind, level RequirementLevel, state ConstraintState) bool {
+	for _, constraint := range result.Constraints {
+		if constraint.Kind == kind && constraint.Level == level && constraint.State == state {
 			return true
 		}
 	}

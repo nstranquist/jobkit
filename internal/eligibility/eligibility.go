@@ -32,11 +32,15 @@ type Config struct {
 }
 
 type Candidate struct {
-	HomeLocations    []string `yaml:"home_locations" json:"home_locations"`
-	AllowedCountries []string `yaml:"allowed_countries" json:"allowed_countries"`
-	Languages        []string `yaml:"languages" json:"languages"`
-	YearsExperience  int      `yaml:"years_experience" json:"years_experience"`
-	RelocationOpen   bool     `yaml:"relocation_open" json:"relocation_open"`
+	HomeLocations            []string `yaml:"home_locations" json:"home_locations"`
+	AllowedCountries         []string `yaml:"allowed_countries" json:"allowed_countries"`
+	Languages                []string `yaml:"languages" json:"languages"`
+	YearsExperience          int      `yaml:"years_experience" json:"years_experience"`
+	RelocationOpen           bool     `yaml:"relocation_open" json:"relocation_open"`
+	WorkAuthorizations       []string `yaml:"work_authorizations" json:"work_authorizations"`
+	Citizenships             []string `yaml:"citizenships" json:"citizenships"`
+	ActiveSecurityClearances []string `yaml:"active_security_clearances" json:"active_security_clearances"`
+	RequiresSponsorship      *bool    `yaml:"requires_sponsorship,omitempty" json:"requires_sponsorship,omitempty"`
 }
 
 type PolicyConfig struct {
@@ -70,13 +74,15 @@ type Reason struct {
 }
 
 type Result struct {
-	Status        Status   `json:"status"`
-	RoleFamily    string   `json:"role_family"`
-	WorkMode      string   `json:"work_mode"`
-	RequiredYears int      `json:"required_years,omitempty"`
-	TravelPercent int      `json:"travel_percent,omitempty"`
-	Reasons       []Reason `json:"reasons,omitempty"`
-	Override      string   `json:"override,omitempty"`
+	Status                  Status       `json:"status"`
+	RoleFamily              string       `json:"role_family"`
+	WorkMode                string       `json:"work_mode"`
+	RequiredYears           int          `json:"required_years,omitempty"`
+	TravelPercent           int          `json:"travel_percent,omitempty"`
+	HardConstraintsVerified bool         `json:"hard_constraints_verified"`
+	Constraints             []Constraint `json:"constraints,omitempty"`
+	Reasons                 []Reason     `json:"reasons,omitempty"`
+	Override                string       `json:"override,omitempty"`
 }
 
 func intPtr(value int) *int { return &value }
@@ -100,8 +106,15 @@ func (c Config) EffectivePolicy() Policy {
 	if c.Policy.MaxTravelPercent != nil {
 		maxTravel = *c.Policy.MaxTravelPercent
 	}
+	candidate := c.Candidate
+	candidate.HomeLocations = normalizeList(candidate.HomeLocations)
+	candidate.AllowedCountries = normalizeList(candidate.AllowedCountries)
+	candidate.Languages = normalizeList(candidate.Languages)
+	candidate.WorkAuthorizations = normalizeList(candidate.WorkAuthorizations)
+	candidate.Citizenships = normalizeList(candidate.Citizenships)
+	candidate.ActiveSecurityClearances = normalizeList(candidate.ActiveSecurityClearances)
 	policy := Policy{
-		Candidate: c.Candidate, AllowedRoleFamilies: append([]string(nil), c.Policy.AllowedRoleFamilies...),
+		Candidate: candidate, AllowedRoleFamilies: append([]string(nil), c.Policy.AllowedRoleFamilies...),
 		MaxTravelPercent: maxTravel, YearsStretch: c.Policy.YearsStretch,
 		AllowManagement: c.Policy.AllowManagement, AllowSales: c.Policy.AllowSales,
 	}
@@ -160,7 +173,10 @@ func (c Config) Validate() error {
 }
 
 func Evaluate(posting Posting, policy Policy) Result {
-	result := Result{Status: Eligible, RoleFamily: classifyRole(posting.Title), WorkMode: classifyWorkMode(posting)}
+	result := Result{
+		Status: Eligible, RoleFamily: classifyRole(posting.Title), WorkMode: classifyWorkMode(posting),
+		HardConstraintsVerified: true,
+	}
 	allowedFamilies := set(policy.AllowedRoleFamilies)
 	if len(allowedFamilies) == 0 {
 		allowedFamilies["software-engineering"] = true
@@ -184,6 +200,7 @@ func Evaluate(posting Posting, policy Policy) Result {
 			result.add(Ineligible, "language_required", "language", fmt.Sprintf("posting requires %s, which is not in the candidate language profile", language))
 		}
 	}
+	evaluateCandidateHardConstraints(posting.Description, policy.Candidate, &result)
 
 	result.RequiredYears = requiredYears(posting.Description)
 	if result.RequiredYears > 0 && policy.Candidate.YearsExperience > 0 && result.RequiredYears > policy.Candidate.YearsExperience {
@@ -197,14 +214,17 @@ func Evaluate(posting Posting, policy Policy) Result {
 
 	result.TravelPercent = requiredTravel(posting.Description)
 	if result.TravelPercent > policy.MaxTravelPercent {
-		severity := Review
-		if result.TravelPercent > policy.MaxTravelPercent+25 {
-			severity = Ineligible
-		}
-		result.add(severity, "travel_exceeds_preference", "travel", fmt.Sprintf("requires %d%% travel; configured maximum is %d%%", result.TravelPercent, policy.MaxTravelPercent))
+		result.HardConstraintsVerified = false
+		result.Constraints = append(result.Constraints, Constraint{
+			Kind: ConstraintTravel, Level: RequirementRequired,
+			Value: fmt.Sprintf("%d%%", result.TravelPercent), State: ConstraintUnsatisfied,
+			Evidence: fmt.Sprintf("posting requires up to %d%% travel", result.TravelPercent),
+		})
+		result.add(Ineligible, "travel_exceeds_maximum", "travel", fmt.Sprintf("requires %d%% travel; configured maximum is %d%%", result.TravelPercent, policy.MaxTravelPercent))
 	}
 
 	evaluateGeography(posting, policy.Candidate, &result)
+	sortConstraints(result.Constraints)
 	sort.SliceStable(result.Reasons, func(i, j int) bool {
 		if result.Reasons[i].Category != result.Reasons[j].Category {
 			return result.Reasons[i].Category < result.Reasons[j].Category
@@ -281,14 +301,19 @@ func classifyRole(title string) string {
 }
 
 func classifyWorkMode(posting Posting) string {
-	text := strings.ToLower(posting.Location + " " + posting.Description)
+	description := strings.ToLower(posting.Description)
+	location := strings.ToLower(posting.Location)
 	switch {
-	case posting.Remote || strings.Contains(strings.ToLower(posting.Location), "remote"):
-		return "remote"
-	case strings.Contains(text, "hybrid"):
+	case matchesAny(description, `\bhybrid\b`, `\b[1-5]\s+days? (?:a|per) week (?:in|at) (?:the )?office\b`):
 		return "hybrid"
-	case strings.Contains(text, "on-site") || strings.Contains(text, "onsite") || strings.Contains(text, "in office"):
+	case matchesAny(description, `\bon[- ]?site\b`, `\bin[- ]office\b`, `\bin (?:the )?office\b`, `\bat (?:a |the )?customer site\b`):
 		return "onsite"
+	case strings.Contains(location, "hybrid"):
+		return "hybrid"
+	case strings.Contains(location, "on-site") || strings.Contains(location, "onsite") || strings.Contains(location, "in office"):
+		return "onsite"
+	case posting.Remote || strings.Contains(location, "remote"):
+		return "remote"
 	default:
 		return "unspecified"
 	}
@@ -324,12 +349,15 @@ func evaluateGeography(posting Posting, candidate Candidate, result *Result) {
 }
 
 var yearPattern = regexp.MustCompile(`(?i)(?:minimum(?: of)?\s+|at least\s+)?([0-9]{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+(?:relevant|professional|industry|software))?\s+experience`)
-var travelPattern = regexp.MustCompile(`(?i)([0-9]{1,3})\s*%[^.\n]{0,30}\btravel\b|\btravel\b[^.\n]{0,30}?([0-9]{1,3})\s*%`)
+var percentPattern = regexp.MustCompile(`(?i)([0-9]{1,3})\s*%`)
 
 func requiredYears(text string) int {
 	maximum := 0
 	for _, match := range yearPattern.FindAllStringSubmatch(text, -1) {
-		value, _ := strconv.Atoi(match[1])
+		value, err := strconv.Atoi(match[1])
+		if err != nil {
+			continue
+		}
 		if value > maximum && value <= 20 {
 			maximum = value
 		}
@@ -339,9 +367,15 @@ func requiredYears(text string) int {
 
 func requiredTravel(text string) int {
 	maximum := 0
-	for _, match := range travelPattern.FindAllStringSubmatch(text, -1) {
-		for _, raw := range match[1:] {
-			value, _ := strconv.Atoi(raw)
+	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+		if !strings.Contains(strings.ToLower(line), "travel") {
+			continue
+		}
+		for _, match := range percentPattern.FindAllStringSubmatch(line, -1) {
+			value, err := strconv.Atoi(match[1])
+			if err != nil {
+				continue
+			}
 			if value > maximum && value <= 100 {
 				maximum = value
 			}
