@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated documentation dependencies, caches, and build output are outside the publication boundary."
+paths = [
+  '''(^|/)node_modules/''',
+  '''^docs/starlight/(\.astro|dist)/''',
+  '''^docs/lab/[^/]+/(\.docusaurus|\.next|\.venv|dist|node_modules|site)/''',
+  '''^docs/lab/[^/]+/\.vitepress/cache/''',
+]
