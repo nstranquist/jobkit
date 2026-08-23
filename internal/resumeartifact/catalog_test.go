@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/nstranquist/jobkit/internal/track"
@@ -59,6 +60,33 @@ func TestSelectHonorsFullstackLane(t *testing.T) {
 	}
 	if selection.VariantID != fullstack.VariantID || selection.ArtifactKind != "docx" {
 		t.Fatalf("selection = %#v", selection)
+	}
+}
+
+func TestSelectDoesNotLetGenericDescriptionOverridePlatformLane(t *testing.T) {
+	root := t.TempDir()
+	indexDir := filepath.Dir(IndexPath(root))
+	if err := os.MkdirAll(indexDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	platform := writeEntry(t, indexDir, "platform", "platform-v1", "v1", []string{"platform", "infrastructure"})
+	fullstack := writeEntry(t, indexDir, "fullstack", "fullstack-v1", "v1-fullstack", []string{"full stack", "product", "SaaS"})
+	writeIndex(t, root, Index{SchemaVersion: 1, DefaultVariantID: platform.VariantID, Entries: []Entry{platform, fullstack}})
+
+	selection, err := Select(root, Query{
+		Role:          "Software Engineer, Compute Infrastructure",
+		Description:   "Build the modern cloud platform for developers creating full-stack SaaS product applications.",
+		PreferredLane: "platform-devex-ai-infra",
+		ArtifactKind:  "pdf",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selection.VariantID != platform.VariantID {
+		t.Fatalf("selection = %#v", selection)
+	}
+	if !strings.Contains(strings.Join(selection.Reasons, "\n"), "preferred lane platform") {
+		t.Fatalf("selection reasons = %v", selection.Reasons)
 	}
 }
 

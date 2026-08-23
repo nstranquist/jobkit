@@ -211,19 +211,30 @@ func (selection Selection) CopyTo(dir string) (string, error) {
 }
 
 func scoreEntry(index Index, entry Entry, query Query) (int, []string) {
-	text := normalize(query.Role + " " + query.Description)
+	role := normalize(query.Role)
+	description := normalize(query.Description)
+	text := strings.TrimSpace(role + " " + description)
 	preferredLane := normalizeLane(query.PreferredLane)
 	score := 0
 	var reasons []string
 	if preferredLane != "" && normalizeLane(entry.Lane) == preferredLane {
-		score += 40
+		// The inbox lane is derived from the job title and verified role family.
+		// It must outweigh generic company copy in the description, such as a
+		// compute-infrastructure posting that mentions "full-stack applications."
+		score += 65
 		reasons = append(reasons, "preferred lane "+entry.Lane)
 	}
 	for _, term := range entry.MatchTerms {
 		normalized := normalize(term)
-		if normalized != "" && containsPhrase(text, normalized) {
-			score += 25
-			reasons = append(reasons, "matched term "+term)
+		switch {
+		case normalized == "":
+			continue
+		case containsPhrase(role, normalized):
+			score += 50
+			reasons = append(reasons, "matched title term "+term)
+		case containsPhrase(description, normalized):
+			score += 10
+			reasons = append(reasons, "matched description term "+term)
 		}
 	}
 	for _, target := range entry.RoleTargets {
