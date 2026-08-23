@@ -2212,27 +2212,14 @@ func cmdApply(c *cli) error {
 	if err := privatefs.EnsureDir(dir); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
-
-	format := firstNonEmpty(c.str("format"), "html")
-	doc := resume.Build(p, j, resume.Options{MaxBulletsPerRole: 4})
-	if err := checkGeneratedClaims("resume", resume.RenderText(doc)); err != nil {
-		return err
-	}
-	var resumeOut, resumeName string
-	switch format {
-	case "md", "markdown":
-		resumeName, resumeOut = "resume.md", resume.RenderMarkdown(doc)
-	case "txt", "text", "ats":
-		resumeName, resumeOut = "resume.txt", resume.RenderText(doc)
-	case "html":
-		resumeName, resumeOut = "resume.html", resume.RenderHTML(doc)
-	case "pdf":
-		resumeName = "resume.pdf"
-		if err := resume.RenderPDF(resume.RenderHTML(doc), filepath.Join(dir, resumeName)); err != nil {
-			return envelope.New(envelope.CodeIOFailed, err.Error())
-		}
-	default:
-		return envelope.Newf(envelope.CodeInvalidArgs, "unknown format %q (md|txt|html|pdf)", format)
+	url := applicationSourceURL(src, c.str("url"))
+	resumeOut, resumeName, catalogResume, err := buildPackageResume(c, p, j, resume.Options{MaxBulletsPerRole: 4}, applicationResumeRequest{
+		CatalogRoot: c.str("resume-root"), Dir: dir, ApplicationID: id,
+		Company: company, Role: role, SourceURL: url, Description: text,
+		MatchScore: res.Score, Assessment: assessment,
+	})
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, "prepare resume: "+err.Error())
 	}
 	letterOut := letter.Build(p, j, res, letter.Options{
 		Company: company, Role: role, Tone: c.str("tone"), Manager: c.str("manager"),
@@ -2260,18 +2247,19 @@ func cmdApply(c *cli) error {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
 		}
 	}
-	provenanceTags, err := generatedResumeTags(filepath.Join(dir, resumeName), id, assessment)
-	if err != nil {
-		return envelope.New(envelope.CodeIOFailed, err.Error())
+	var provenanceTags map[string]string
+	if catalogResume != nil {
+		provenanceTags = catalogResume.Tags
+	} else {
+		provenanceTags, err = generatedResumeTags(filepath.Join(dir, resumeName), id, assessment)
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
 	}
 
 	status := firstNonEmpty(c.str("status"), "interested")
 	if !track.ValidStatus(status) {
 		return envelope.Newf(envelope.CodeInvalidArgs, "invalid status %q (one of: %s)", status, strings.Join(track.Statuses, ", "))
-	}
-	url := c.str("url")
-	if url == "" && jd.IsURL(src) {
-		url = src
 	}
 	eligibilityNote := ""
 	if assessment != nil {
@@ -2291,7 +2279,7 @@ func cmdApply(c *cli) error {
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"id": id, "score": res.Score, "dir": dir, "status": status,
-			"eligibility": assessment, "files": sortedKeys(files),
+			"eligibility": assessment, "files": packageFileNames(files, resumeName, receiptName(catalogResume)),
 		})
 		return nil
 	}
@@ -2300,7 +2288,7 @@ func cmdApply(c *cli) error {
 	if assessment != nil {
 		fmt.Printf("  eligibility: %s\n", assessment.Status)
 	}
-	fmt.Printf("    %s\n", strings.Join(sortedKeys(files), ", "))
+	fmt.Printf("    %s\n", strings.Join(packageFileNames(files, resumeName, receiptName(catalogResume)), ", "))
 	fmt.Printf("  tracked:     %s (%s)\n", id, status)
 	fmt.Printf("next: review the letter, then `jobkit track set %s --status applied`\n", id)
 	return nil
@@ -2364,27 +2352,13 @@ func cmdApplyPlan(c *cli) error {
 	if err := privatefs.EnsureDir(dir); err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
 	}
-
-	format := firstNonEmpty(c.str("format"), "html")
-	doc := resume.Build(p, j, resume.Options{MaxBulletsPerRole: 4, TailorOrder: true})
-	if err := checkGeneratedClaims("resume", resume.RenderText(doc)); err != nil {
-		return err
-	}
-	var resumeOut, resumeName string
-	switch format {
-	case "md", "markdown":
-		resumeName, resumeOut, format = "resume.md", resume.RenderMarkdown(doc), "md"
-	case "txt", "text", "ats":
-		resumeName, resumeOut, format = "resume.txt", resume.RenderText(doc), "txt"
-	case "html":
-		resumeName, resumeOut = "resume.html", resume.RenderHTML(doc)
-	case "pdf":
-		resumeName = "resume.pdf"
-		if err := resume.RenderPDF(resume.RenderHTML(doc), filepath.Join(dir, resumeName)); err != nil {
-			return envelope.New(envelope.CodeIOFailed, err.Error())
-		}
-	default:
-		return envelope.Newf(envelope.CodeInvalidArgs, "unknown format %q (md|txt|html|pdf)", format)
+	resumeOut, resumeName, catalogResume, err := buildPackageResume(c, p, j, resume.Options{MaxBulletsPerRole: 4, TailorOrder: true}, applicationResumeRequest{
+		CatalogRoot: c.str("resume-root"), Dir: dir, ApplicationID: trackID, InboxID: inboxID,
+		Company: company, Role: role, SourceURL: sourceURL, Description: text,
+		MatchScore: res.Score, Assessment: assessment,
+	})
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, "prepare resume: "+err.Error())
 	}
 	letterOut := letter.Build(p, j, res, letter.Options{
 		Company: company, Role: role, Tone: c.str("tone"), Manager: c.str("manager"),
@@ -2399,9 +2373,12 @@ func cmdApplyPlan(c *cli) error {
 	if err != nil {
 		return envelope.New(envelope.CodeInternal, err.Error())
 	}
-
+	planOut := renderPlan(company, role, sourceURL, trackID, inboxID, dir, res, assessment)
+	if catalogResume != nil {
+		planOut += "\n## Verified Resume\n\n" + catalogResume.PlanNote + "\n"
+	}
 	files := map[string]string{
-		"plan.md":        renderPlan(company, role, sourceURL, trackID, inboxID, dir, res, assessment),
+		"plan.md":        planOut,
 		"letter.txt":     letterOut,
 		"outreach.txt":   outreachOut,
 		"form-fill.json": string(formJSON) + "\n",
@@ -2420,9 +2397,14 @@ func cmdApplyPlan(c *cli) error {
 			return envelope.New(envelope.CodeIOFailed, err.Error())
 		}
 	}
-	provenanceTags, err := generatedResumeTags(filepath.Join(dir, resumeName), trackID, assessment)
-	if err != nil {
-		return envelope.New(envelope.CodeIOFailed, err.Error())
+	var provenanceTags map[string]string
+	if catalogResume != nil {
+		provenanceTags = catalogResume.Tags
+	} else {
+		provenanceTags, err = generatedResumeTags(filepath.Join(dir, resumeName), trackID, assessment)
+		if err != nil {
+			return envelope.New(envelope.CodeIOFailed, err.Error())
+		}
 	}
 	if inboxID != "" {
 		provenanceTags[track.TagInboxID] = inboxID
@@ -2464,7 +2446,7 @@ func cmdApplyPlan(c *cli) error {
 			}
 		}
 	}
-	fileNames := sortedKeys(files)
+	fileNames := packageFileNames(files, resumeName, receiptName(catalogResume))
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"dir": dir, "track_id": trackID, "inbox_id": inboxID, "score": res.Score,
