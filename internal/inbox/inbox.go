@@ -69,6 +69,7 @@ type Job struct {
 	Compensation *jobsearch.Compensation `json:"compensation,omitempty"`
 	Opportunity  jobsearch.Opportunity   `json:"opportunity,omitempty"`
 	Eligibility  *eligibility.Result     `json:"eligibility,omitempty"`
+	Liveness     string                  `json:"liveness,omitempty"`
 	JDText       string                  `json:"jd_text,omitempty"`
 	Fingerprint  string                  `json:"fingerprint,omitempty"`
 	SourceURL    string                  `json:"source_url,omitempty"`
