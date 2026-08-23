@@ -28,6 +28,7 @@ func TestEvaluateSeparatesEligibilityFromFit(t *testing.T) {
 		{name: "years hard stop", post: Posting{Title: "Principal Engineer", Location: "Remote, US", Remote: true, Description: "At least 12 years of software experience."}, status: Ineligible, code: "years_exceeds_stretch"},
 		{name: "language hard stop", post: Posting{Title: "Developer Experience Engineer", Location: "Seoul, Korea", Description: "Native Korean proficiency required. 30% travel."}, status: Ineligible, code: "language_required"},
 		{name: "technical adoption included", post: Posting{Title: "Forward Deployed Engineer", Location: "Remote - US", Remote: true, Description: "Partner with customer engineering teams."}, status: Eligible},
+		{name: "internship excluded", post: Posting{Title: "AI Engineer, Intern", Location: "Remote - US", Remote: true}, status: Ineligible, code: "role_family_disallowed"},
 		{name: "sales excluded", post: Posting{Title: "Account Executive", Location: "Remote - US", Remote: true}, status: Ineligible, code: "sales_disallowed"},
 		{name: "management excluded", post: Posting{Title: "Engineering Manager", Location: "Remote - US", Remote: true}, status: Ineligible, code: "management_disallowed"},
 	}
@@ -254,12 +255,25 @@ func TestRoleFamilyClassification(t *testing.T) {
 		"AI Deployment Engineer, Startups":    "technical-adoption",
 		"Technical Account Manager":           "technical-adoption",
 		"Technical Program Manager, Platform": "management",
+		"Software Engineer Co-op":             "internship",
 	}
 	for title, want := range tests {
 		result := Evaluate(Posting{Title: title, Location: "Remote - US", Remote: true}, testPolicy())
 		if result.RoleFamily != want {
 			t.Errorf("%q family = %q, want %q", title, result.RoleFamily, want)
 		}
+	}
+}
+
+func TestInternshipsRequireExplicitRoleFamilyOptIn(t *testing.T) {
+	config := Template([]string{"St. Louis, MO"}, 1, true)
+	config.Policy.AllowedRoleFamilies = append(config.Policy.AllowedRoleFamilies, "internship")
+	if err := config.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	result := Evaluate(Posting{Title: "Software Engineer Intern", Location: "Remote - US", Remote: true}, config.EffectivePolicy())
+	if result.Status != Eligible || result.RoleFamily != "internship" {
+		t.Fatalf("result = %#v, want explicitly enabled internship", result)
 	}
 }
 

@@ -163,7 +163,7 @@ func (c Config) Validate() error {
 	if c.Policy.MaxTravelPercent != nil && (*c.Policy.MaxTravelPercent < 0 || *c.Policy.MaxTravelPercent > 100) {
 		return fmt.Errorf("policy.max_travel_percent must be between 0 and 100")
 	}
-	allowed := map[string]bool{"software-engineering": true, "technical-adoption": true, "management": true, "sales": true}
+	allowed := map[string]bool{"software-engineering": true, "technical-adoption": true, "management": true, "sales": true, "internship": true}
 	for _, family := range c.Policy.AllowedRoleFamilies {
 		if !allowed[family] {
 			return fmt.Errorf("unknown allowed role family %q", family)
@@ -283,6 +283,8 @@ func (r *Result) add(status Status, code, category, summary string) {
 func classifyRole(title string) string {
 	title = strings.ToLower(strings.TrimSpace(title))
 	switch {
+	case matchesAny(title, `\b(?:intern|internship|co[- ]?op)\b`):
+		return "internship"
 	case matchesAny(title, `\b(account executive|sales manager|sales representative|business development)\b`, `\bcustomer success manager\b`, `\bsales engineer\b`):
 		return "sales"
 	case matchesAny(title, `\bforward deployed\b`, `\bsolutions? (engineer|architect)\b`, `\bdeveloper advocate\b`, `\bdeveloper relations\b`, `\btechnical account manager\b`, `\bcustomer engineer\b`, `\b(ai|technical) adoption\b`, `\b(ai )?deployment engineer\b`, `\bfield engineer\b`):
