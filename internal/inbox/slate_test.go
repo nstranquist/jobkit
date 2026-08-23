@@ -15,7 +15,7 @@ func TestBuildSlateEnforcesMixAndEmployerCap(t *testing.T) {
 		items = append(items, &Item{
 			ID: id, Status: "new", MatchScore: float64(score),
 			Job: Job{Company: company, Title: title, Opportunity: jobsearch.Opportunity{Score: score},
-				Eligibility: &eligibility.Result{Status: eligibility.Eligible, RoleFamily: family}},
+				Eligibility: &eligibility.Result{Status: eligibility.Eligible, RoleFamily: family, HardConstraintsVerified: true}},
 		})
 	}
 	for i := 0; i < 7; i++ {
@@ -54,5 +54,22 @@ func TestBuildSlateExcludesUnassessedAndIneligible(t *testing.T) {
 	slate := BuildSlate(items, SlatePolicy{Platform: 1, EmployerCap: 2})
 	if len(slate.Selections) != 0 || slate.Skipped["unassessed"] != 1 || slate.Skipped["ineligible"] != 1 {
 		t.Fatalf("slate = %#v", slate)
+	}
+}
+
+func TestBuildSlateRequiresVerifiedEligibilityByDefault(t *testing.T) {
+	items := []*Item{
+		{ID: "review", Status: "new", Job: Job{Title: "Platform Engineer", Eligibility: &eligibility.Result{Status: eligibility.Review, RoleFamily: "software-engineering", HardConstraintsVerified: true}}},
+		{ID: "old", Status: "new", Job: Job{Title: "Platform Engineer", Eligibility: &eligibility.Result{Status: eligibility.Eligible, RoleFamily: "software-engineering"}}},
+	}
+	slate := BuildSlate(items, SlatePolicy{Platform: 1, EmployerCap: 2})
+	if len(slate.Selections) != 0 || slate.Skipped["review_required"] != 1 || slate.Skipped["hard_constraints_unverified"] != 1 {
+		t.Fatalf("slate = %#v", slate)
+	}
+
+	policy := SlatePolicy{Platform: 1, EmployerCap: 2, AllowReview: true}
+	slate = BuildSlate(items[:1], policy)
+	if len(slate.Selections) != 1 || slate.Selections[0].ID != "review" {
+		t.Fatalf("review opt-in slate = %#v", slate)
 	}
 }

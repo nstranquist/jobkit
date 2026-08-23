@@ -2829,6 +2829,18 @@ func cmdInbox(c *cli) error {
 		}
 		fmt.Print(renderWeeklySlate(slate))
 		return nil
+	case "summary":
+		limit, err := inboxSummaryLimit(c)
+		if err != nil {
+			return err
+		}
+		summary := inbox.BuildSummary(items, limit)
+		if c.bool("json") {
+			envelope.EmitData(summary)
+		} else {
+			fmt.Print(renderInboxSummary(summary))
+		}
+		return nil
 	case "list", "":
 		filtered := items
 		if st := c.str("status"); st != "" {
@@ -2866,6 +2878,10 @@ func cmdInbox(c *cli) error {
 		}
 		if filtered == nil {
 			filtered = []*inbox.Item{}
+		}
+		filtered, err = boundInboxList(c, filtered)
+		if err != nil {
+			return err
 		}
 		if c.bool("json") {
 			envelope.EmitData(filtered)

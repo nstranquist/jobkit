@@ -17,11 +17,12 @@ const (
 )
 
 type SlatePolicy struct {
-	Platform    int `json:"platform"`
-	Fullstack   int `json:"fullstack"`
-	Adoption    int `json:"adoption"`
-	Stretch     int `json:"stretch"`
-	EmployerCap int `json:"employer_cap"`
+	Platform    int  `json:"platform"`
+	Fullstack   int  `json:"fullstack"`
+	Adoption    int  `json:"adoption"`
+	Stretch     int  `json:"stretch"`
+	EmployerCap int  `json:"employer_cap"`
+	AllowReview bool `json:"allow_review"`
 }
 
 type SlateSelection struct {
@@ -70,6 +71,14 @@ func BuildSlate(items []*Item, policy SlatePolicy) Slate {
 		}
 		if item.Job.Eligibility.Status == eligibility.Ineligible {
 			result.Skipped["ineligible"]++
+			continue
+		}
+		if item.Job.Eligibility.Status == eligibility.Review && !policy.AllowReview {
+			result.Skipped["review_required"]++
+			continue
+		}
+		if !item.Job.Eligibility.HardConstraintsVerified {
+			result.Skipped["hard_constraints_unverified"]++
 			continue
 		}
 		candidates = append(candidates, item)
@@ -131,7 +140,29 @@ func BuildSlate(items []*Item, policy SlatePolicy) Slate {
 	if result.Skipped["unassessed"] > 0 {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("%d active job(s) are unassessed; run `jobkit inbox recheck`", result.Skipped["unassessed"]))
 	}
+	if result.Skipped["hard_constraints_unverified"] > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("%d active job(s) have old or incomplete hard-constraint evidence; run `jobkit inbox recheck`", result.Skipped["hard_constraints_unverified"]))
+	}
+	if result.Skipped["review_required"] > 0 {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("%d active job(s) require a human eligibility decision", result.Skipped["review_required"]))
+	}
 	return result
+}
+
+// LaneFor returns the deterministic resume lane for an assessed inbox item.
+func LaneFor(item *Item) string {
+	switch {
+	case item == nil || item.Job.Eligibility == nil:
+		return LanePlatform
+	case isStretchRole(item):
+		return LaneStretch
+	case isAdoptionRole(item):
+		return LaneAdoption
+	case isFullstackRole(item):
+		return LaneFullstack
+	default:
+		return LanePlatform
+	}
 }
 
 var (
