@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JobKit docs lab — screenshot compare</title>
+<style>
+  :root { --bg:#0e1117; --panel:#161b22; --line:#262d3a; --text:#c9d1d9; --strong:#f0f6fc; --muted:#8b949e; --accent:#79c0ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif; }
+  header { padding:28px 28px 8px; max-width:1400px; margin:0 auto; }
+  h1 { color:var(--strong); font-size:28px; margin:0 0 8px; }
+  .lede { color:var(--muted); max-width:78ch; }
+  h2 { color:var(--strong); font-size:18px; margin:28px 0 10px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:12px; max-width:1400px; margin:0 auto 12px; padding:0 28px; }
+  figure { margin:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  figcaption { padding:8px 12px; font-size:13px; color:var(--muted); border-top:1px solid var(--line); }
+  figcaption strong { color:var(--strong); }
+  img { display:block; width:100%; height:auto; background:#000; }
+  .score { font-family:ui-monospace,Menlo,monospace; color:var(--accent); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Screenshot compare</h1>
+  <p class="lede">Real <code>ndev browser</code> viewport captures, 1440×900, 2026-08-14. Same JobKit v0.9.0 facts. Scores live in <a href="../SCORECARD.md">SCORECARD.md</a>. Live sites: <a href="../hub.html">hub.html</a>.</p>
+</header>
+
+<h2 style="max-width:1400px;margin:20px auto 0;padding:0 28px">Homes</h2>
+<div class="row">
+  <figure><img src="vitepress-home.png" alt="VitePress home" /><figcaption><strong>VitePress</strong> :4323 · <span class="score">8.8</span></figcaption></figure>
+  <figure><img src="starlight-home.png" alt="Starlight home" /><figcaption><strong>Starlight</strong> :4322 · <span class="score">8.3</span></figcaption></figure>
+  <figure><img src="fumadocs-home.png" alt="Fumadocs home" /><figcaption><strong>Fumadocs</strong> :4326 · <span class="score">8.1</span></figcaption></figure>
+  <figure><img src="vocs-home.png" alt="Vocs home" /><figcaption><strong>Vocs</strong> :4327 · <span class="score">7.8</span></figcaption></figure>
+  <figure><img src="rspress-home.png" alt="Rspress home" /><figcaption><strong>Rspress</strong> :4328 · <span class="score">8.5</span></figcaption></figure>
+  <figure><img src="mkdocs-home.png" alt="MkDocs home" /><figcaption><strong>MkDocs Material</strong> :4325 · <span class="score">7.4</span></figcaption></figure>
+  <figure><img src="html-home.png" alt="Custom HTML" /><figcaption><strong>Custom HTML</strong> file · <span class="score">7.0</span></figcaption></figure>
+  <figure><img src="docusaurus-home.png" alt="Docusaurus home" /><figcaption><strong>Docusaurus</strong> :4324 · <span class="score">5.8</span></figcaption></figure>
+  <figure><img src="docsify-home.png" alt="Docsify home" /><figcaption><strong>Docsify</strong> :4329 · <span class="score">5.2</span></figcaption></figure>
+</div>
+
+<h2 style="max-width:1400px;margin:20px auto 0;padding:0 28px">First hour</h2>
+<div class="row">
+  <figure><img src="vitepress-hour.png" alt="VitePress first hour" /><figcaption><strong>VitePress</strong> — badges, code groups, containers, theme slot</figcaption></figure>
+  <figure><img src="starlight-hour.png" alt="Starlight first hour" /><figcaption><strong>Starlight</strong> — cleanest default docs chrome</figcaption></figure>
+  <figure><img src="fumadocs-hour.png" alt="Fumadocs first hour" /><figcaption><strong>Fumadocs</strong> — Copy Markdown + Open + callouts</figcaption></figure>
+  <figure><img src="vocs-hour.png" alt="Vocs first hour" /><figcaption><strong>Vocs</strong> — numbered steps + Ask in ChatGPT</figcaption></figure>
+  <figure><img src="rspress-hour.png" alt="Rspress first hour" /><figcaption><strong>Rspress</strong> — edit / copy / open-in-chat in the outline</figcaption></figure>
+  <figure><img src="mkdocs-hour.png" alt="MkDocs first hour" /><figcaption><strong>MkDocs</strong> — instant nav, copy button, dated chrome</figcaption></figure>
+  <figure><img src="docusaurus-hour.png" alt="Docusaurus first hour" /><figcaption><strong>Docusaurus</strong> — breadcrumbs, generic Infima</figcaption></figure>
+  <figure><img src="docsify-hour.png" alt="Docsify first hour" /><figcaption><strong>Docsify</strong> — no-build, dated chrome</figcaption></figure>
+</div>
+
+<h2 style="max-width:1400px;margin:20px auto 24px;padding:0 28px">VitePress extras</h2>
+<div class="row">
+  <figure><img src="vitepress-extras.png" alt="VitePress extras page" /><figcaption><strong>VitePress extras</strong> — the features turned on after the first lab pass</figcaption></figure>
+</div>
+</body>
+</html>

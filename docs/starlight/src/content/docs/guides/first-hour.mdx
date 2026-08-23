@@ -1,0 +1,57 @@
+---
+title: First hour
+description: Profile, constraints, discover, prepare.
+---
+
+import { Steps, Aside, Badge, Tabs, TabItem } from '@astrojs/starlight/components';
+
+<Badge text="v0.9.0" variant="tip" />
+
+<Aside type="note" title="Contract">
+  JobKit finds roles, scores fit, and prepares a package. A human submits it.
+  Claims fail closed.
+</Aside>
+
+<Steps>
+
+1. **Profile** — Create or bootstrap the YAML profile. Validate it before any search.
+
+   ```sh title="bootstrap + validate"
+   jobkit profile bootstrap --source ~/Downloads/resume.pdf --out auto
+   jobkit profile validate
+   ```
+
+2. **Constraints** — Write hard limits in the eligibility file. Fit and eligibility stay separate.
+
+   ```sh title="eligibility"
+   jobkit eligibility init --home "St. Louis, MO" \
+     --countries "United States,USA,US" --languages English \
+     --years 7 --relocation-open
+   ```
+
+3. **Discover** — Run a saved search or `find`. Queue matches into the inbox.
+
+   ```sh title="find" {2}
+   jobkit search init
+   jobkit find backend go --targets ai-infra --remote \
+     --sort opportunity --persona backend-platform \
+     --eligibility actionable --inbox
+   ```
+
+4. **Prepare** — Build an apply-plan. Review the package. Then submit by hand.
+
+   ```sh title="prepare"
+   jobkit inbox list
+   jobkit apply-plan <inbox-id> --tone warm
+   ```
+
+</Steps>
+
+<Aside type="tip" title="Already reviewed?">
+  Skip bootstrap. Run `jobkit profile validate` and start at discover.
+</Aside>
+
+<Aside type="caution" title="Eligibility is not fit">
+  Hard limits live in eligibility. Opportunity ranking is a separate score. Do
+  not merge them.
+</Aside>

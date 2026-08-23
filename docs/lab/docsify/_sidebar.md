@@ -1,0 +1,19 @@
+- Start
+  - [Home](/)
+  - [Contract](guides/contract.md)
+  - [Install](guides/install.md)
+  - [First hour](guides/first-hour.md)
+  - [Weekly loop](guides/weekly-loop.md)
+- Workflow
+  - [Search](guides/search.md)
+  - [Eligibility](guides/eligibility.md)
+  - [Inbox](guides/inbox.md)
+  - [Apply packages](guides/apply.md)
+  - [Tracker](guides/tracker.md)
+  - [Coach](guides/coach.md)
+- Reference
+  - [Command map](reference/commands.md)
+  - [State](reference/state.md)
+  - [Environment](reference/environment.md)
+  - [Fix problems](reference/troubleshooting.md)
+- [Compare](compare.md)

@@ -1,0 +1,76 @@
+site_name: JobKit
+site_description: Local-first job-search toolkit. v0.9.0.
+site_url: http://127.0.0.1:4325
+repo_url: https://github.com/nstranquist/jobkit
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+    - search.share
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
+nav:
+  - Home: index.md
+  - Start:
+      - Contract: guides/contract.md
+      - Install: guides/install.md
+      - First hour: guides/first-hour.md
+      - Weekly loop: guides/weekly-loop.md
+  - Workflow:
+      - Search: guides/search.md
+      - Eligibility: guides/eligibility.md
+      - Inbox: guides/inbox.md
+      - Apply packages: guides/apply.md
+      - Tracker: guides/tracker.md
+      - Coach: guides/coach.md
+  - Reference:
+      - Command map: reference/commands.md
+      - State: reference/state.md
+      - Environment: reference/environment.md
+      - Fix problems: reference/troubleshooting.md
+  - Compare: compare.md
+plugins:
+  - search
+  - tags

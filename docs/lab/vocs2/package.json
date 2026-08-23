@@ -1,0 +1,17 @@
+{
+  "name": "jobkit-docs-vocs2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev --port 4331",
+    "build": "vocs build",
+    "preview": "vocs preview --port 4331"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "vite": "^8.0.0",
+    "vocs": "^2.8.5",
+    "waku": "^1.0.0-beta.9"
+  }
+}

@@ -1,0 +1,38 @@
+---
+title: Install
+description: Build JobKit and confirm the version.
+---
+
+import { Aside, Tabs, TabItem, Badge } from '@astrojs/starlight/components';
+
+<Badge text="local binary" variant="note" />
+
+Build the binary from the JobKit repository. Then put it on your `PATH`.
+
+<Tabs>
+  <TabItem label="make">
+
+```sh title="make install"
+cd ~/tools/jobkit
+make install
+jobkit version
+```
+
+  </TabItem>
+  <TabItem label="go">
+
+```sh title="go build"
+cd ~/tools/jobkit
+go build -o "$HOME/.local/bin/jobkit" ./cmd/jobkit
+jobkit version
+```
+
+  </TabItem>
+</Tabs>
+
+The default state directory is `~/.jobkit`. Set `JOBKIT_HOME` to use a different directory.
+
+<Aside type="tip" title="Proof">
+  `jobkit version` prints `0.9.0`. `make demo` runs the full walkthrough in an
+  isolated home and never reads your real state.
+</Aside>

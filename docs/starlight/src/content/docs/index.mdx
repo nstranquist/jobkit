@@ -1,0 +1,42 @@
+---
+title: JobKit
+description: Local-first job-search toolkit. One binary. No submit.
+template: splash
+hero:
+  tagline: JobKit finds roles, scores fit, prepares packages, and tracks the funnel. It does not submit applications. It does not invent experience.
+  actions:
+    - text: First hour
+      link: /guides/first-hour/
+      icon: right-arrow
+    - text: Compare with the custom HTML guide
+      link: /compare/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## What this site is
+
+This is the **Astro Starlight** rendering of the same JobKit v0.9.0 operator guide. The custom single-file HTML lives at `docs/human/jobkit.html`. Open both and compare search, sidebar, dark mode, and density.
+
+<CardGrid stagger>
+	<Card title="Does" icon="approve-check">
+		Keeps state on this computer. Scores fit from a reviewed profile. Prepares packages a human can send. Records history in append-only ledgers.
+	</Card>
+	<Card title="Does not" icon="error">
+		Submit a form. Send outreach. Scrape LinkedIn, Wellfound, Google Jobs, or Indeed. Invent a metric, skill, or claim. Publish `~/.jobkit`.
+	</Card>
+	<Card title="Search boundary" icon="magnifier">
+		`jobkit find` queries public Greenhouse, Lever, and Ashby APIs only. Other boards stay operator-side. Tag them with `--source`.
+	</Card>
+	<Card title="Human review" icon="seti:lock">
+		A human must review every package before any send. If `~/.jobkit/claims.yaml` exists, generated numbers must match that allowlist.
+	</Card>
+</CardGrid>
+
+<LinkCard
+	title="First hour"
+	href="/guides/first-hour/"
+	description="Profile, constraints, discover, prepare."
+/>

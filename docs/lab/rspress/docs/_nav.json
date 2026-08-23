@@ -1,0 +1,16 @@
+[
+  {
+    "text": "Guide",
+    "link": "/guides/first-hour",
+    "activeMatch": "/guides/"
+  },
+  {
+    "text": "Reference",
+    "link": "/reference/commands",
+    "activeMatch": "/reference/"
+  },
+  {
+    "text": "Compare",
+    "link": "/compare"
+  }
+]
