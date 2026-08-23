@@ -33,11 +33,13 @@ checks:
         - /dev/null
         - ./cmd/jobkit
 description: >-
-    Local-first Go job-search toolkit (single binary, v0.9.0). JobKit combines a
+    Local-first Go job-search toolkit (single binary, v0.10.0). JobKit combines a
     trusted YAML profile, explainable eligibility policy, saved board searches,
     company and referral intelligence, a deduplicated inbox, JD parsing,
-    deterministic fit scoring, tailored resumes and letters, human-reviewed
-    apply packages, and an append-only application tracker. Its evidence-linked
+    deterministic fit scoring, verified nicos-resume artifact selection,
+    tailored letters, human-reviewed apply packages, and an append-only
+    application tracker. Hard constraints fail closed and large inbox reads are
+    bounded by default. Its evidence-linked
     interview coach builds role-specific project, behavioral, system-design,
     and claim-defense drills from reviewed public source bundles. Deterministic
     scoring, claim gates, spaced review, and localhost practice remain

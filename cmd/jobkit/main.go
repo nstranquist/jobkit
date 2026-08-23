@@ -42,7 +42,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
-const version = "0.9.0"
+const version = "0.10.0"
 
 // boolFlags take no value; everything else consumes one.
 var boolFlags = map[string]bool{
@@ -2174,7 +2174,7 @@ func cmdApply(c *cli) error {
 		return err
 	}
 	if len(c.args) < 2 {
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit apply <jd-file|url|-> [--company X] [--role Y] [--tone T] [--format html|md|txt] [--status S]")
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit apply <jd-file|url|-> [--company X] [--role Y] [--tone T] [--format html|md|txt|pdf] [--resume-root PATH|none] [--resume-artifact pdf|docx|ats] [--status S]")
 	}
 	src := c.args[1]
 	text, err := readInput(src)
@@ -2303,7 +2303,7 @@ func cmdApplyPlan(c *cli) error {
 		return err
 	}
 	if len(c.args) < 2 {
-		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit apply-plan <jd-file|url|inbox-id|-> [--company X] [--role Y] [--tone T] [--format html|md|txt|pdf]")
+		return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit apply-plan <jd-file|url|inbox-id|-> [--company X] [--role Y] [--tone T] [--format html|md|txt|pdf] [--resume-root PATH|none] [--resume-artifact pdf|docx|ats]")
 	}
 	src := c.args[1]
 	text, company, role, sourceURL, inboxID, err := planSource(src)
@@ -3771,11 +3771,14 @@ ARTIFACTS
   apply-plan <jd|url|inbox-id> [--company X] [--role Y] [--tone T]
               [--location X] [--remote] [--override-eligibility]
               [--allow-unassessed-eligibility]
+              [--resume-root PATH|none] [--resume-artifact pdf|docx|ats]
                                     human-in-loop package + checklist; no submit;
+                                    verified resume catalog by default when found;
                                     ineligible roles fail closed unless reviewed
   apply <jd> [--company X] [--role Y] [--tone T] [--format html|md|txt|pdf]
               [--location X] [--remote] [--override-eligibility]
               [--allow-unassessed-eligibility]
+              [--resume-root PATH|none] [--resume-artifact pdf|docx|ats]
                                     golden path: resume + letter + prep sheet +
                                     match report into ~/.jobkit/out/<id>/ + tracked
   resume build [jd] [--format md|txt|html|pdf] [--out PATH|auto] [--max-bullets N] [--full]
