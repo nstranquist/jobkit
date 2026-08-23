@@ -115,3 +115,55 @@ func TestKubernetesAlias(t *testing.T) {
 		t.Fatal("k8s should map to Kubernetes")
 	}
 }
+
+func TestAboutYouMarksVercelIdentitySkillsRequired(t *testing.T) {
+	posting := `Software Engineer, Backend
+
+About the Role
+Build user, group, and membership management services.
+
+About You
+- Proficiency in TypeScript/JavaScript, React, and Node.js.
+- Strong knowledge of LDAP, Active Directory, SAML, OAuth2, and OpenID Connect.
+- Familiarity with access control models such as RBAC, ABAC, and ReBAC.
+- Experience with SQL.
+
+Benefits
+- Learn Kubernetes through the company training program.
+`
+	parsed := Parse(posting)
+	byName := map[string]SkillHit{}
+	for _, skill := range parsed.Skills {
+		byName[skill.Name] = skill
+	}
+	for _, required := range []string{
+		"TypeScript", "React", "Node.js", "LDAP", "Active Directory", "SAML",
+		"OAuth2", "OpenID Connect", "RBAC", "ABAC", "ReBAC", "SQL",
+	} {
+		skill, ok := byName[required]
+		if !ok {
+			t.Errorf("required skill %q was not detected", required)
+			continue
+		}
+		if !skill.Required {
+			t.Errorf("skill %q was not classified as required: %#v", required, skill)
+		}
+	}
+	if skill := byName["Kubernetes"]; skill.Required {
+		t.Fatalf("benefit-section skill became required: %#v", skill)
+	}
+}
+
+func TestRequiredAndBonusSectionLabels(t *testing.T) {
+	parsed := Parse("Required\nTypeScript and SQL\n\nBonus\nKubernetes and Terraform")
+	byName := map[string]SkillHit{}
+	for _, skill := range parsed.Skills {
+		byName[skill.Name] = skill
+	}
+	if !byName["TypeScript"].Required || !byName["SQL"].Required {
+		t.Fatalf("required section was not classified: %#v", byName)
+	}
+	if byName["Kubernetes"].Required || byName["Terraform"].Required {
+		t.Fatalf("bonus section became required: %#v", byName)
+	}
+}

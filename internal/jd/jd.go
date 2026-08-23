@@ -71,9 +71,9 @@ type JD struct {
 }
 
 var (
-	reqHeader  = regexp.MustCompile(`(?i)^\s*#*\s*(requirements?|qualifications?|must[- ]haves?|what (you('ll)? (bring|have)|we('re| are) looking for)|you (have|bring|are)|minimum qualifications)\b`)
-	niceHeader = regexp.MustCompile(`(?i)^\s*#*\s*(nice[- ]to[- ]haves?|bonus( points)?|preferred( qualifications)?|plus(es)?|extra credit)\b`)
-	anyHeader  = regexp.MustCompile(`(?i)^\s*#*\s*(about|responsibilities|what you('ll)? do|the role|benefits|perks|compensation|who we are|our (team|stack|mission)|overview|description)\b`)
+	reqHeader  = regexp.MustCompile(`(?i)^\s*#*\s*(required|requirements?|required qualifications?|qualifications?|minimum (requirements?|qualifications?)|basic qualifications?|must[- ]haves?|about you|who you are|what (you(['’]?ll)? (bring|have|need)|we(['’]?re| are) looking for)|you (have|bring|are|need)|your (experience|skills|background))\b`)
+	niceHeader = regexp.MustCompile(`(?i)^\s*#*\s*(nice[- ]to[- ]haves?|bonus( points?)?|preferred( qualifications?)?|plus(es)?|extra credit|great if)\b`)
+	anyHeader  = regexp.MustCompile(`(?i)^\s*#*\s*(about|responsibilities|what you(['’]?ll)? do|the role|benefits|perks|compensation|location( and travel)?|apply for this job|equal opportunity|who we are|our (team|stack|mission)|overview|description)\b`)
 	titleLine  = regexp.MustCompile(`(?i)^\s*(?:job\s*)?title\s*[:\-]\s*(.+)$`)
 	companyLn  = regexp.MustCompile(`(?i)^\s*company\s*[:\-]\s*(.+)$`)
 	// '.'/'/' are NOT word chars: "k8s." and "ci/cd," must still match at

@@ -37,6 +37,15 @@ GraphQL||framework
 gRPC|grpc|framework
 REST|restful, rest api, rest apis|framework
 WebSockets|websocket|framework
+OAuth2|oauth, oauth 2.0|domain
+OpenID Connect|oidc, openid|domain
+SAML|security assertion markup language|domain
+LDAP|lightweight directory access protocol|domain
+Active Directory|microsoft active directory|domain
+SCIM|system for cross-domain identity management|domain
+RBAC|role-based access control, role based access control|domain
+ABAC|attribute-based access control, attribute based access control|domain
+ReBAC|relationship-based access control, relationship based access control|domain
 Tailwind|tailwindcss, tailwind css|framework
 Electron||framework
 Tauri||framework
