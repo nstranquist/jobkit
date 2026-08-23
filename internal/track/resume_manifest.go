@@ -21,6 +21,8 @@ var requiredResumeManifestGates = [...]string{
 	"visual_nvr",
 }
 
+const TagResumeManifestDigest = "resume_manifest_digest"
+
 // ResumePackageManifest is the stable subset of nicos-resume's package
 // manifest that JobKit needs for application provenance. Unknown fields are
 // deliberately tolerated so additive producer changes remain compatible.
@@ -104,6 +106,10 @@ func ResumeManifestTags(path, artifactKind, artifactPath string) (map[string]str
 	if actualDigest != digest {
 		return nil, fmt.Errorf("resume artifact %s digest %s does not match manifest %s digest %s", artifactPath, actualDigest, kind, digest)
 	}
+	manifestDigest, err := fileSHA256Digest(path)
+	if err != nil {
+		return nil, fmt.Errorf("hash resume manifest %s: %w", path, err)
+	}
 	return map[string]string{
 		TagResumeVersion:        manifest.Version,
 		TagResumeVariantID:      manifest.VariantID,
@@ -112,6 +118,7 @@ func ResumeManifestTags(path, artifactKind, artifactPath string) (map[string]str
 		TagResumeSourceDigest:   manifest.SourceDigest,
 		TagClaimSetVersion:      manifest.ClaimSetVersion,
 		TagClaimSetDigest:       manifest.ClaimSetDigest,
+		TagResumeManifestDigest: manifestDigest,
 	}, nil
 }
 
