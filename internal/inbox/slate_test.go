@@ -73,3 +73,15 @@ func TestBuildSlateRequiresVerifiedEligibilityByDefault(t *testing.T) {
 		t.Fatalf("review opt-in slate = %#v", slate)
 	}
 }
+
+func TestLaneForKeepsTechnicalAdoptionArchitectInAdoptionLane(t *testing.T) {
+	item := &Item{Job: Job{
+		Title: "Solutions Architect",
+		Eligibility: &eligibility.Result{
+			Status: eligibility.Eligible, RoleFamily: "technical-adoption", HardConstraintsVerified: true,
+		},
+	}}
+	if lane := LaneFor(item); lane != LaneAdoption {
+		t.Fatalf("lane = %q, want %q", lane, LaneAdoption)
+	}
+}

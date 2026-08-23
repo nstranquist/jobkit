@@ -154,10 +154,10 @@ func LaneFor(item *Item) string {
 	switch {
 	case item == nil || item.Job.Eligibility == nil:
 		return LanePlatform
-	case isStretchRole(item):
-		return LaneStretch
 	case isAdoptionRole(item):
 		return LaneAdoption
+	case isStretchRole(item):
+		return LaneStretch
 	case isFullstackRole(item):
 		return LaneFullstack
 	default:
