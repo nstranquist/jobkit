@@ -67,6 +67,7 @@ type JD struct {
 	Company   string     `json:"company,omitempty"`
 	Seniority string     `json:"seniority"`
 	Skills    []SkillHit `json:"skills"`
+	Untrusted []string   `json:"untrusted,omitempty"`
 	Raw       string     `json:"-"`
 }
 
@@ -84,7 +85,7 @@ var (
 
 // Parse analyzes raw JD text.
 func Parse(raw string) *JD {
-	j := &JD{Raw: raw}
+	j := &JD{Raw: raw, Untrusted: InstructionFlags(raw)}
 	lower := strings.ToLower(raw)
 
 	// Title/company: explicit "Title:"/"Company:" lines win; else first

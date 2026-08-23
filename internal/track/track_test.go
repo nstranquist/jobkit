@@ -2,9 +2,29 @@ package track
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestSourceUsageHint(t *testing.T) {
+	hint := SourceUsageHint()
+	if hint == "" {
+		t.Fatal("empty source usage hint")
+	}
+	for _, token := range []string{"ats", "google-jobs", "wellfound", "referral", "inbound", "cold"} {
+		found := false
+		for _, part := range strings.Split(hint, "|") {
+			if part == token {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("hint %q missing %q", hint, token)
+		}
+	}
+}
 
 func tempLedger(t *testing.T) *Ledger {
 	t.Helper()

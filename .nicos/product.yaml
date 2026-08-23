@@ -19,6 +19,12 @@ tags:
 refs:
     - kind: implements
       target: recipe.jobkit
+    - kind: documented_by
+      target: human-doc.jobkit
+    - kind: documented_by
+      target: human-doc.jobkit-docs-lab
+    - kind: documented_by
+      target: doc.jobkit-user
 checks:
     - name: test
       command:

@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/envelope"
 	"github.com/nstranquist/jobkit/internal/home"
 	"github.com/nstranquist/jobkit/internal/inbox"
+	"github.com/nstranquist/jobkit/internal/jd"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
 	"github.com/nstranquist/jobkit/internal/profile"
 	"github.com/nstranquist/jobkit/internal/track"
@@ -26,6 +29,9 @@ func TestHelpCompactIsTokenEfficient(t *testing.T) {
 	}
 	if !strings.Contains(compact, "find <q>") {
 		t.Fatalf("compact help should list core verbs:\n%s", compact)
+	}
+	if !strings.Contains(compact, "study") || !strings.Contains(compact, "mint") {
+		t.Fatalf("compact help should name study mint:\n%s", compact)
 	}
 	if len(compact) >= len(full)/3 {
 		t.Fatalf("compact help too large: compact=%d full=%d (want < 1/3)", len(compact), len(full))
@@ -65,8 +71,16 @@ func TestApplyPlanReusesTrackerAndOutputForSameInboxItem(t *testing.T) {
 		t.Fatal(err)
 	}
 	il := &inbox.Ledger{Path: inboxPath}
+	live := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("Company: Acme\nTitle: Platform Engineer\nBuild reliable Go platform services.\n"))
+	}))
+	t.Cleanup(live.Close)
+	prev := jd.HTTPClient
+	jd.HTTPClient = live.Client()
+	t.Cleanup(func() { jd.HTTPClient = prev })
 	job := inbox.Job{
-		Company: "Acme", Title: "Platform Engineer", URL: "https://example.com/jobs/platform",
+		Company: "Acme", Title: "Platform Engineer", URL: live.URL + "/jobs/platform",
 		Location: "Remote - United States", Remote: true, Description: "Build reliable Go platform services.",
 		JDText: "Company: Acme\nTitle: Platform Engineer\nBuild reliable Go platform services.\n",
 	}
@@ -421,5 +435,208 @@ func TestCalibrateApplyWritesImprovedWeights(t *testing.T) {
 	}
 	if cfg.Weights.Compensation <= jobsearch.DefaultOpportunityWeights().Compensation {
 		t.Fatalf("weights = %#v, want compensation weight increased", cfg.Weights)
+	}
+}
+
+func writeProfile(t *testing.T) {
+	t.Helper()
+	path, err := home.ProfilePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := profile.WriteTemplate(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestJDFetchAndMatchFailClosedOnDeadPosting(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	writeProfile(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	prev := jd.HTTPClient
+	jd.HTTPClient = srv.Client()
+	t.Cleanup(func() { jd.HTTPClient = prev })
+
+	if err := cmdJD(parseArgs([]string{"jd", "fetch", srv.URL + "/jobs/1"})); err == nil {
+		t.Fatal("jd fetch should fail closed on 404")
+	} else if !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "404") {
+		t.Fatalf("err=%v, want closed/404", err)
+	}
+
+	expired := filepath.Join(t.TempDir(), "dead.txt")
+	if err := os.WriteFile(expired, []byte("Company: Acme\nTitle: Engineer\nThis position has been filled.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdMatch(parseArgs([]string{"match", expired})); err == nil {
+		t.Fatal("match should fail closed on expired body")
+	}
+	if err := cmdApplyPlan(parseArgs([]string{"apply-plan", expired, "--company", "Acme", "--role", "Engineer", "--allow-unassessed-eligibility"})); err == nil {
+		t.Fatal("apply-plan should fail closed on expired body")
+	}
+	outRoot, err := home.OutDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("apply package leaked: %v", entries)
+	}
+}
+
+func TestApplyPlanBlacklistGatesWithoutWritingUntilOverride(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("JOBKIT_HOME", stateDir)
+	writeProfile(t)
+	bl, err := home.BlacklistPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bl, []byte("schema_version: 1\ncompanies:\n  - Acme\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	jdPath := filepath.Join(t.TempDir(), "live.txt")
+	if err := os.WriteFile(jdPath, []byte("Company: Acme\nTitle: Platform Engineer\nRequirements\n- Go\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdApplyPlan(parseArgs([]string{"apply-plan", jdPath, "--company", "Acme", "--role", "Platform Engineer", "--allow-unassessed-eligibility"})); err == nil {
+		t.Fatal("expected blacklist gate")
+	}
+	outRoot, err := home.OutDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("package written before override: %v", entries)
+	}
+	if err := cmdApplyPlan(parseArgs([]string{"apply-plan", jdPath, "--company", "Acme", "--role", "Platform Engineer", "--allow-unassessed-eligibility", "--override-eligibility"})); err != nil {
+		t.Fatal(err)
+	}
+	entries, err = os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries=%v, want one package after override", entries)
+	}
+}
+
+func TestInboxRecheckMarksClosedURLWithoutChangingMatchScore(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("JOBKIT_HOME", stateDir)
+	path, err := home.EligibilityPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eligibility.Save(path, eligibility.Template([]string{"St. Louis, MO"}, 7, true)); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGone)
+	}))
+	t.Cleanup(srv.Close)
+	prev := jd.HTTPClient
+	jd.HTTPClient = srv.Client()
+	t.Cleanup(func() { jd.HTTPClient = prev })
+
+	inboxPath, err := home.InboxPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	il := &inbox.Ledger{Path: inboxPath}
+	job := inbox.Job{
+		Company: "Acme", Title: "Platform Engineer", URL: srv.URL + "/jobs/1",
+		Location: "Remote - United States", Remote: true,
+		Description: "Build reliable Go platform services.",
+		JDText:      "Company: Acme\nTitle: Platform Engineer\nBuild reliable Go platform services.\n",
+	}
+	id := inbox.NewID(job)
+	if err := il.Append(inbox.Event{ID: id, Type: inbox.EvSaved, Status: "new", Job: &job, MatchScore: 82}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdInbox(parseArgs([]string{"inbox", "recheck"})); err != nil {
+		t.Fatal(err)
+	}
+	items, err := il.Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := inbox.Find(items, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.MatchScore != 82 {
+		t.Fatalf("match score moved: %v", item.MatchScore)
+	}
+	if item.Job.Liveness != "closed" {
+		t.Fatalf("liveness=%q job=%#v", item.Job.Liveness, item.Job)
+	}
+	if item.Job.Eligibility == nil || item.Job.Eligibility.Status != eligibility.Ineligible {
+		t.Fatalf("eligibility=%#v, want ineligible closed gate", item.Job.Eligibility)
+	}
+	if item.NextAction != "skip-ineligible" {
+		t.Fatalf("next=%q", item.NextAction)
+	}
+}
+
+func TestApplyPlanFailsClosedAfterInboxRecheck410(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("JOBKIT_HOME", stateDir)
+	writeProfile(t)
+	path, err := home.EligibilityPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eligibility.Save(path, eligibility.Template([]string{"St. Louis, MO"}, 7, true)); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGone)
+	}))
+	t.Cleanup(srv.Close)
+	prev := jd.HTTPClient
+	jd.HTTPClient = srv.Client()
+	t.Cleanup(func() { jd.HTTPClient = prev })
+
+	inboxPath, err := home.InboxPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	il := &inbox.Ledger{Path: inboxPath}
+	job := inbox.Job{
+		Company: "Acme", Title: "Platform Engineer", URL: srv.URL + "/jobs/1",
+		Location: "Remote - United States", Remote: true,
+		Description: "Build reliable Go platform services.",
+		JDText:      "Company: Acme\nTitle: Platform Engineer\nBuild reliable Go platform services.\n",
+	}
+	id := inbox.NewID(job)
+	if err := il.Append(inbox.Event{ID: id, Type: inbox.EvSaved, Status: "new", Job: &job, MatchScore: 82}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdInbox(parseArgs([]string{"inbox", "recheck"})); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdApplyPlan(parseArgs([]string{"apply-plan", id, "--allow-unassessed-eligibility"})); err == nil {
+		t.Fatal("apply-plan must fail closed after recheck marked the URL 410")
+	}
+	outRoot, err := home.OutDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(outRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("apply package leaked after closed recheck: %v", entries)
 	}
 }

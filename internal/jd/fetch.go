@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"golang.org/x/net/html"
 )
@@ -17,8 +16,16 @@ func IsURL(s string) bool {
 }
 
 // Fetch downloads a posting URL and returns readable plain text.
+// HTTP 404/410 and closed/expired bodies fail closed as *ClosedError.
 func Fetch(url string) (string, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
+	return FetchWithClient(HTTPClient, url)
+}
+
+// FetchWithClient is Fetch with an explicit client (tests inject httptest).
+func FetchWithClient(client *http.Client, url string) (string, error) {
+	if client == nil {
+		client = HTTPClient
+	}
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
@@ -30,16 +37,31 @@ func Fetch(url string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		return "", &ClosedError{Status: resp.StatusCode, Reason: strings.TrimSpace(resp.Status)}
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
 	}
 	body := io.LimitReader(resp.Body, 4<<20) // 4 MiB cap
 	ct := resp.Header.Get("Content-Type")
+	var text string
 	if strings.Contains(ct, "text/plain") || strings.Contains(ct, "application/json") {
 		raw, err := io.ReadAll(body)
-		return string(raw), err
+		if err != nil {
+			return "", err
+		}
+		text = string(raw)
+	} else {
+		text, err = ToText(body)
+		if err != nil {
+			return "", err
+		}
 	}
-	return ToText(body)
+	if err := RequireLive(text); err != nil {
+		return "", err
+	}
+	return text, nil
 }
 
 // skip these subtrees entirely when extracting text.

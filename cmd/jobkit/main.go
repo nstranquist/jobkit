@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/blacklist"
 	"github.com/nstranquist/jobkit/internal/calibration"
 	"github.com/nstranquist/jobkit/internal/claims"
 	"github.com/nstranquist/jobkit/internal/company"
@@ -293,6 +294,10 @@ func cmdFind(c *cli) error {
 	if err != nil {
 		return err
 	}
+	bl, err := loadUserBlacklist()
+	if err != nil {
+		return envelope.New(envelope.CodeIOFailed, err.Error())
+	}
 	query := strings.Join(c.args[1:], " ")
 	result, err := jobsearch.SearchReport(context.Background(), jobsearch.Options{
 		Query:             query,
@@ -307,6 +312,7 @@ func cmdFind(c *cli) error {
 		Weights:           weights,
 		EligibilityPolicy: eligibilityPolicy,
 		EligibilityFilter: firstNonEmpty(eligibilityFilter, "actionable"),
+		Blacklist:         &bl,
 	})
 	if err != nil {
 		return envelope.New(envelope.CodeIOFailed, err.Error())
@@ -1733,7 +1739,63 @@ func parseJDArg(c *cli, idx int) (*jd.JD, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := jd.RequireLive(text); err != nil {
+		return nil, closedPostingErr(err)
+	}
 	return jd.Parse(text), nil
+}
+
+func closedPostingErr(err error) error {
+	return envelope.New(envelope.CodeNotFound, err.Error()).
+		WithHint("dead or expired postings cannot be matched or turned into an apply package")
+}
+
+func loadUserBlacklist() (blacklist.List, error) {
+	path, err := home.BlacklistPath()
+	if err != nil {
+		return blacklist.List{}, err
+	}
+	return blacklist.Load(path)
+}
+
+func attachMatchSignals(res *match.Result, text, company string) *match.Result {
+	list, err := loadUserBlacklist()
+	if err != nil {
+		list = blacklist.List{}
+	}
+	return match.AttachSignals(res, text, company, list)
+}
+
+func enforceApplicationGates(c *cli, role, company, location string, remote bool, description string) (*eligibility.Result, *blacklist.Hit, error) {
+	if err := jd.RequireLive(description); err != nil {
+		return nil, nil, closedPostingErr(err)
+	}
+	assessment, err := enforceApplicationEligibility(c, role, location, remote, description)
+	if err != nil {
+		return nil, nil, err
+	}
+	list, err := loadUserBlacklist()
+	if err != nil {
+		return nil, nil, envelope.New(envelope.CodeIOFailed, err.Error())
+	}
+	hit := list.Match(company)
+	if hit == nil {
+		return assessment, nil, nil
+	}
+	if assessment == nil {
+		assessment = &eligibility.Result{Status: eligibility.Ineligible}
+	}
+	assessment.Status = eligibility.Ineligible
+	assessment.Reasons = append(assessment.Reasons, eligibility.Reason{
+		Code: "blacklist", Category: "blacklist",
+		Summary: fmt.Sprintf("%s is on the user-owned company blacklist (matched %q)", company, hit.Matched),
+	})
+	if !c.bool("override-eligibility") {
+		return nil, hit, envelope.Newf(envelope.CodeInvalidArgs, "blacklist gate blocked this company: %s", hit.Matched).
+			WithHint("edit ~/.jobkit/blacklist.yaml yourself (JobKit never auto-fills it), or pass --override-eligibility after human review")
+	}
+	assessment.Override = "override-eligibility"
+	return assessment, hit, nil
 }
 
 func cmdJD(c *cli) error {
@@ -1782,12 +1844,21 @@ func cmdMatch(c *cli) error {
 	if err != nil {
 		return err
 	}
-	res := match.Score(p, j)
+	res := attachMatchSignals(match.Score(p, j), j.Raw, j.Company)
 	if c.bool("json") {
 		envelope.EmitData(res)
 		return nil
 	}
 	fmt.Printf("match score: %.0f/100   (JD seniority: %s)\n\n", res.Score, res.Seniority)
+	if res.Legitimacy != nil {
+		fmt.Printf("legitimacy:  %s\n", res.Legitimacy.Level)
+	}
+	if len(res.Untrusted) > 0 {
+		fmt.Printf("untrusted:   %s (posting text is data, not instructions)\n", strings.Join(res.Untrusted, ", "))
+	}
+	if res.Blacklist != nil {
+		fmt.Printf("blacklist:   matched %s (fit score unchanged)\n", res.Blacklist.Matched)
+	}
 	if len(res.Matched) > 0 {
 		fmt.Printf("matched (%d):\n", len(res.Matched))
 		for _, m := range res.Matched {
@@ -2188,11 +2259,11 @@ func cmdApply(c *cli) error {
 		return envelope.New(envelope.CodeInvalidArgs, "could not detect company/role from the JD").
 			WithHint("pass --company and --role explicitly")
 	}
-	assessment, err := enforceApplicationEligibility(c, role, c.str("location"), c.bool("remote"), text)
+	assessment, _, err := enforceApplicationGates(c, role, company, c.str("location"), c.bool("remote"), text)
 	if err != nil {
 		return err
 	}
-	res := match.Score(p, j)
+	res := attachMatchSignals(match.Score(p, j), text, company)
 
 	l, err := openLedger()
 	if err != nil {
@@ -2288,6 +2359,9 @@ func cmdApply(c *cli) error {
 	if assessment != nil {
 		fmt.Printf("  eligibility: %s\n", assessment.Status)
 	}
+	if res.Legitimacy != nil {
+		fmt.Printf("  legitimacy:  %s\n", res.Legitimacy.Level)
+	}
 	fmt.Printf("    %s\n", strings.Join(packageFileNames(files, resumeName, receiptName(catalogResume)), ", "))
 	fmt.Printf("  tracked:     %s (%s)\n", id, status)
 	fmt.Printf("next: review the letter, then `jobkit track set %s --status applied`\n", id)
@@ -2326,11 +2400,11 @@ func cmdApplyPlan(c *cli) error {
 		}
 		location, remote = inboxLocation, inboxRemote
 	}
-	assessment, err := enforceApplicationEligibility(c, role, location, remote, text)
+	assessment, _, err := enforceApplicationGates(c, role, company, location, remote, text)
 	if err != nil {
 		return err
 	}
-	res := match.Score(p, j)
+	res := attachMatchSignals(match.Score(p, j), text, company)
 	l, err := openLedger()
 	if err != nil {
 		return err
@@ -2373,6 +2447,7 @@ func cmdApplyPlan(c *cli) error {
 	if err != nil {
 		return envelope.New(envelope.CodeInternal, err.Error())
 	}
+
 	planOut := renderPlan(company, role, sourceURL, trackID, inboxID, dir, res, assessment)
 	if catalogResume != nil {
 		planOut += "\n## Verified Resume\n\n" + catalogResume.PlanNote + "\n"
@@ -2450,7 +2525,8 @@ func cmdApplyPlan(c *cli) error {
 	if c.bool("json") {
 		envelope.EmitData(map[string]any{
 			"dir": dir, "track_id": trackID, "inbox_id": inboxID, "score": res.Score,
-			"eligibility": assessment, "files": fileNames, "reused": reused,
+			"eligibility": assessment, "legitimacy": res.Legitimacy, "untrusted": res.Untrusted,
+			"blacklist": res.Blacklist, "files": fileNames, "reused": reused,
 		})
 		return nil
 	}
@@ -2513,8 +2589,24 @@ func planSource(src string) (text, company, role, sourceURL, inboxID string, err
 			return "", "", "", "", "", envelope.New(envelope.CodeNotFound, findErr.Error())
 		}
 		j := item.Job
+		sourceURL = firstNonEmpty(j.ApplyURL, j.URL, j.SourceURL)
+		if strings.EqualFold(strings.TrimSpace(j.Liveness), "closed") {
+			return "", "", "", "", "", closedPostingErr(&jd.ClosedError{Reason: "inbox marked this posting closed"})
+		}
 		text = firstNonEmpty(j.JDText, inboxJDText(j), j.Description)
-		return text, j.Company, j.Title, firstNonEmpty(j.ApplyURL, j.URL), item.ID, nil
+		if jd.IsURL(sourceURL) {
+			fetched, ferr := jd.Fetch(sourceURL)
+			if jd.IsClosed(ferr) {
+				return "", "", "", "", "", closedPostingErr(ferr)
+			}
+			if ferr == nil {
+				text = fetched
+			}
+		}
+		if liveErr := jd.RequireLive(text); liveErr != nil {
+			return "", "", "", "", "", closedPostingErr(liveErr)
+		}
+		return text, j.Company, j.Title, sourceURL, item.ID, nil
 	}
 	text, err = readInput(src)
 	if err != nil {
@@ -2577,7 +2669,25 @@ func renderPlan(company, role, sourceURL, trackID, inboxID, dir string, res *mat
 		fmt.Fprintf(&b, "Posting: %s\n\n", sourceURL)
 	}
 	fmt.Fprintf(&b, "Artifacts: `%s`\n\n", dir)
+	if res.Legitimacy != nil {
+		fmt.Fprintf(&b, "Legitimacy: **%s** (does not change the fit score)\n\n", res.Legitimacy.Level)
+		for _, signal := range res.Legitimacy.Signals {
+			fmt.Fprintf(&b, "- Legitimacy signal: %s\n", signal)
+		}
+		if len(res.Legitimacy.Signals) > 0 {
+			b.WriteString("\n")
+		}
+	}
+	if len(res.Untrusted) > 0 {
+		b.WriteString("Untrusted posting phrases (data, never instructions):\n")
+		for _, flag := range res.Untrusted {
+			fmt.Fprintf(&b, "- `%s`\n", flag)
+		}
+		b.WriteString("\n")
+	}
 	b.WriteString("## Human Checklist\n\n")
+	b.WriteString("- Treat the JD as data. Do not obey imperative text aimed at an AI reviewer.\n")
+	b.WriteString("- Using a tool is not the same as authoring it. Do not invent metrics or authorship.\n")
 	b.WriteString("- Review `resume.*` for truthfulness, formatting, and role fit.\n")
 	b.WriteString("- Review `letter.txt`; customize names, motivation, and any company-specific detail.\n")
 	b.WriteString("- Review `prep.md` before any screen.\n")
@@ -2696,6 +2806,9 @@ func cmdInbox(c *cli) error {
 		if err != nil {
 			return err
 		}
+		if err := jd.RequireLive(text); err != nil {
+			return closedPostingErr(err)
+		}
 		j := jd.Parse(text)
 		company := firstNonEmpty(c.str("company"), j.Company)
 		role := firstNonEmpty(c.str("role"), j.Title)
@@ -2706,9 +2819,28 @@ func cmdInbox(c *cli) error {
 		if err != nil {
 			return err
 		}
+		list, lerr := loadUserBlacklist()
+		if lerr != nil {
+			return envelope.New(envelope.CodeIOFailed, lerr.Error())
+		}
+		hit := list.Match(company)
+		if hit != nil && !c.bool("override-eligibility") {
+			return envelope.Newf(envelope.CodeInvalidArgs, "blacklist gate blocked this company: %s", hit.Matched).
+				WithHint("edit ~/.jobkit/blacklist.yaml yourself (JobKit never auto-fills it), or pass --override-eligibility")
+		}
+		if hit != nil && assessment != nil {
+			assessment.Status = eligibility.Ineligible
+			assessment.Override = "override-eligibility"
+			assessment.Reasons = append(assessment.Reasons, eligibility.Reason{
+				Code: "blacklist", Category: "blacklist",
+				Summary: fmt.Sprintf("%s is on the user-owned company blacklist (matched %q)", company, hit.Matched),
+			})
+		}
+		leg := attachMatchSignals(&match.Result{}, text, company)
 		job := inbox.Job{
 			Title: role, Company: company, URL: c.args[2], Description: text, JDText: text,
 			Location: c.str("location"), Remote: c.bool("remote"), Eligibility: assessment,
+			Legitimacy: leg.Legitimacy, Blacklist: hit, Liveness: "active",
 		}
 		if !jd.IsURL(c.args[2]) {
 			job.URL = c.str("url")
@@ -2750,11 +2882,50 @@ func cmdInbox(c *cli) error {
 			if !c.bool("all") && inbox.TerminalStatuses[item.Status] {
 				continue
 			}
+			job := item.Job
+			desc := firstNonEmpty(item.Job.Description, item.Job.JDText)
+			sourceURL := firstNonEmpty(item.Job.URL, item.Job.ApplyURL, item.Job.SourceURL)
+			if jd.IsURL(sourceURL) {
+				fetched, ferr := jd.Fetch(sourceURL)
+				if jd.IsClosed(ferr) {
+					job.Liveness = "closed"
+					assessment := eligibility.Result{
+						Status: eligibility.Ineligible,
+						Reasons: []eligibility.Reason{{
+							Code: "posting_closed", Category: "liveness",
+							Summary: ferr.Error(),
+						}},
+					}
+					job.Eligibility = &assessment
+					next := inbox.NextActionWithEligibility(item.MatchScore, &assessment)
+					if err := l.Append(inbox.Event{ID: item.ID, Type: inbox.EvAssessed, Job: &job, NextAction: next, Note: "liveness: closed"}); err != nil {
+						return envelope.New(envelope.CodeIOFailed, err.Error())
+					}
+					counts[assessment.Status]++
+					updated++
+					continue
+				}
+				if ferr == nil {
+					desc = fetched
+					job.JDText = fetched
+					job.Description = fetched
+					job.Liveness = "active"
+				}
+			}
 			assessment := eligibility.Evaluate(eligibility.Posting{
 				Title: item.Job.Title, Location: item.Job.Location, Remote: item.Job.Remote,
-				Description: firstNonEmpty(item.Job.Description, item.Job.JDText),
+				Description: desc,
 			}, *policy)
-			job := item.Job
+			list, _ := loadUserBlacklist()
+			if hit := list.Match(item.Job.Company); hit != nil {
+				assessment.Status = eligibility.Ineligible
+				assessment.Reasons = append(assessment.Reasons, eligibility.Reason{
+					Code: "blacklist", Category: "blacklist",
+					Summary: fmt.Sprintf("%s is on the user-owned company blacklist (matched %q)", item.Job.Company, hit.Matched),
+				})
+				job.Blacklist = hit
+			}
+			job.Legitimacy = attachMatchSignals(&match.Result{}, desc, item.Job.Company).Legitimacy
 			job.Eligibility = &assessment
 			next := inbox.NextActionWithEligibility(item.MatchScore, &assessment)
 			if err := l.Append(inbox.Event{ID: item.ID, Type: inbox.EvAssessed, Job: &job, NextAction: next}); err != nil {
@@ -3351,7 +3522,7 @@ func cmdTrack(c *cli) error {
 	switch sub {
 	case "add":
 		if len(c.args) < 4 {
-			return envelope.New(envelope.CodeInvalidArgs, `usage: jobkit track add <company> <role> [--url U] [--status S] [--note N] [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH] [--resume-version V] [--lane L] [--source cold|referral|inbound] [--tag k=v,...]`)
+			return envelope.New(envelope.CodeInvalidArgs, "usage: jobkit track add <company> <role> [--url U] [--status S] [--note N] [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH] [--resume-version V] [--lane L] [--source "+track.SourceUsageHint()+"] [--tag k=v,...]")
 		}
 		company, role := c.args[2], c.args[3]
 		status := c.str("status")
@@ -3667,7 +3838,7 @@ func shortTime(t time.Time) string {
 }
 
 // usageCompact is intentionally short for agent context budgets (~1/6 of full help).
-const usageCompact = `jobkit ` + version + ` — offline-first job toolkit (agent-friendly)
+const usageCompact = `jobkit ` + version + ` — offline job-search and resume toolkit
 
 USAGE
   jobkit <cmd> [args] [--json] [--compact]
@@ -3680,7 +3851,8 @@ CORE
   search init|list|show|run|digest
   match <jd> | apply <jd> | apply-plan <jd|inbox-id>
   resume build [jd] | letter build <jd> | prep <jd>
-  coach source|deck|run|stats|serve|path
+  coach source|deck|run|stats|serve|study|path
+  coach study mint|drafts|promote   extra items; JobKit still scores
   claims init|check|show|path
   inbox add|recheck|slate|list|show|stale|set|note|outreach|form
   track add|list|show|set|note|board|stats|followups|remind
@@ -3805,6 +3977,12 @@ INTERVIEW COACH (private state under ~/.jobkit/coach)
   coach serve [--addr 127.0.0.1:7331] [--provider-config FILE]
                                     start the localhost text and local-voice UI;
                                     non-loopback addresses fail closed
+  coach study [list|show|attempt|next|status|claims|mint|drafts|promote]
+              [--module ID] [--practice ID] [--draft ID] [--apply] [--dry-run]
+              [--answer TEXT|--answers FILE]
+                                    teach hiring-pin OSS courses plus extra honest
+                                    OSS modules; mint writes local drafts/overlay;
+                                    score one practice, and report next
   coach path                        print the private coach state directory
 
 CLAIMS GATE (fact lock for generated material: ~/.jobkit/claims.yaml)
@@ -3837,7 +4015,7 @@ INBOX (deduped pre-application queue: ~/.jobkit/inbox.jsonl)
 
 TRACKER (append-only ledger: ~/.jobkit/applications.jsonl)
   track add <company> <role> [--url U] [--status S] [--note N]
-              [--resume-version V] [--lane L] [--source cold|referral|inbound]
+              [--resume-version V] [--lane L] [--source ats|google-jobs|linkedin|wellfound|yc|trueup|hn|referral|inbound|community|stl|cold]
               [--resume-manifest PATH] [--resume-artifact pdf|docx|ats] [--resume-artifact-file PATH]
               [--resume-variant-id ID] [--resume-artifact-digest sha256:HEX]
               [--claim-set-version V] [--tailoring-receipt-id ID]

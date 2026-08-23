@@ -77,6 +77,28 @@ const (
 	TagSource               = "source"
 )
 
+// RecommendedSources are the operator-facing discovery lanes. The tracker
+// still accepts any source string so Friday stats can compare real conversion.
+var RecommendedSources = []string{
+	"ats",
+	"google-jobs",
+	"linkedin",
+	"wellfound",
+	"yc",
+	"trueup",
+	"hn",
+	"referral",
+	"inbound",
+	"community",
+	"stl",
+	"cold",
+}
+
+// SourceUsageHint is the --source token list shown in CLI help.
+func SourceUsageHint() string {
+	return strings.Join(RecommendedSources, "|")
+}
+
 // Application is replayed state for one tracked job.
 type Application struct {
 	ID        string            `json:"id"`

@@ -1,8 +1,30 @@
 # jobkit
 
-A multi-purpose job application & resume toolkit — one Go binary, offline-first,
-agent-friendly. Built for software-engineering job hunts but profile/lexicon
-driven, so it works for any field you can describe in skills and bullets.
+A job-application and resume toolkit. One Go binary. Works offline. Built for
+software-engineering job hunts, but it is driven by a profile and a skill list,
+so it works for any field you can describe.
+
+**Fail-closed** here means: if a check cannot prove the result is safe, the
+command stops. Missing evidence is treated as a failure.
+
+## User guide
+
+The human-facing operator guide is a single-file HTML page. Open it in a
+browser. No build step.
+
+[`docs/human/jobkit.html`](docs/human/jobkit.html)
+
+A Starlight comparison site (same facts, Markdown + sidebar + search) lives in
+[`docs/starlight/`](docs/starlight/). Run `cd docs/starlight && pnpm dev` and
+open http://127.0.0.1:4322 next to the HTML file.
+
+A multi-framework lab (VitePress, Docusaurus, MkDocs Material, Fumadocs, Vocs)
+is in [`docs/lab/`](docs/lab/). Open [`docs/lab/hub.html`](docs/lab/hub.html)
+and read [`docs/lab/UNIFIED.md`](docs/lab/UNIFIED.md) for the catalog-wide
+docs recommendation.
+
+Coach-only page: [`docs/human/jobkit-coach.html`](docs/human/jobkit-coach.html).
+Architecture decisions: [`docs/architecture.md`](docs/architecture.md).
 
 ## Showcase
 
@@ -35,7 +57,7 @@ contains personal data. Extra shots live in [screenshots/](screenshots/).
 | Tailored resumes | `jobkit resume build <jd> [--format md\|txt\|html\|pdf]` | Skills reordered and bullets ranked by JD relevance (capped at 4/role); renders Markdown, ATS-safe plain text, print-ready single-file HTML, or PDF via headless Chrome |
 | Cover letters | `jobkit letter build <jd> [--tone professional\|warm\|direct]` | Deterministic draft that weaves your top matched skills with their best supporting bullet — honest about the top required gap |
 | Interview prep | `jobkit prep <jd>` | Per-skill deep-dive questions anchored to your own stories, gap-defense bridges, a STAR story bank, questions to ask them |
-| Interview coach | `jobkit coach source\|deck\|run\|stats\|serve` | Evidence-linked project drills, deterministic claim-safe scoring, spaced reviews, optional advisory AI feedback, and a localhost practice UI |
+| Interview coach | `jobkit coach source\|deck\|run\|stats\|serve\|study` | Evidence-linked project drills, ordered OSS-pin study, deterministic claim-safe scoring, spaced reviews, optional advisory AI feedback, and a localhost practice UI |
 | Application tracker | `jobkit track add\|list\|show\|set\|note\|board\|stats\|followups\|remind` | Append-only JSONL event ledger; funnel board, response-rate stats, verified nicos-resume manifest import, artifact/claim provenance, follow-up nudges, and text/ICS reminder export |
 
 ## Quick start
@@ -77,6 +99,8 @@ jobkit apply https://job-boards.greenhouse.io/acme/jobs/123 --tone warm
 
 jobkit prep posting.txt                 # interview-prep sheet
 # Import a reviewed standalone source bundle:
+jobkit coach study                      # list OSS study modules and the next practice
+jobkit coach study --module docs-puller --answer "local-first sqlite fts5 bm25 eval hit@1"
 jobkit coach source import examples/coach-source.json
 jobkit coach deck --job posting.txt --mode mixed --minutes 20
 jobkit coach run latest --answers examples/coach-answers.json
@@ -94,10 +118,19 @@ jobkit track remind --format ics --out auto
 `make demo` runs the full walkthrough against `examples/` in an isolated
 temp state dir.
 
+`jobkit coach study` teaches hiring-pin OSS courses first, then extra honest
+OSS modules (public remotes like SnapRef; Phase 0 / local-beta rows stay
+labeled). Each module has purpose, architecture, a run/demo path, talking
+points, and scored practice. Progress is append-only in
+`~/.jobkit/coach/study-results.jsonl`. A later invocation continues from the
+first incomplete practice. Quantified teaching claims must trace to the
+resume claims lock, a public README, or a public case study. Token dumps of
+expected concepts fail on explain/recall/defend.
+
 Coach source bundles use the public `jobkit.coach.source.v1` contract. The
 import rejects local paths, private evidence markers, unknown claim links, and
 non-public scope. A deck becomes invalid when its imported source changes.
-Raw answers stay in `~/.jobkit/coach/sessions.jsonl`.
+Raw interview answers stay in `~/.jobkit/coach/sessions.jsonl`.
 
 Deterministic scoring is authoritative. An unsupported quantified claim caps
 the answer below 60 and schedules it for review in one day. Optional provider
@@ -209,6 +242,11 @@ The complete stack rationale and revisit triggers are in
   human-editable: public ATS boards, target compensation, tags, and hiring
   signals combine into a next-action score so outreach can happen before a
   posting is everywhere.
+- **`find` only covers public Greenhouse, Lever, and Ashby APIs.** LinkedIn,
+  Wellfound, Google Jobs, HN, and inbound marketplaces stay operator-side.
+  Track them with `--source` (`ats`, `google-jobs`, `wellfound`, `referral`,
+  `inbound`, …) so `track stats` can compare lanes. Any source string is
+  accepted; the help list is a vocabulary, not a gate.
 - **Opportunity beats raw keyword match.** Public board results carry
   compensation, freshness, saturation, and persona scores. The default weights
   are useful immediately; `jobkit calibrate apply` tunes them against observed
@@ -245,7 +283,7 @@ internal/match/      gap scoring + advice
 internal/resume/     tailoring + md/txt/html renderers
 internal/letter/     deterministic cover-letter drafts
 internal/prep/       interview-prep sheet generator
-internal/coach/      evidence source, rubric scoring, providers, and localhost UI
+internal/coach/      evidence source, pin study, rubric scoring, providers, and localhost UI
 internal/track/      append-only application ledger + stats
 internal/telemetry/  per-run JSONL telemetry (best-effort)
 internal/strictyaml/ strict single-document YAML decoder

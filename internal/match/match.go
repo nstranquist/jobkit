@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/nstranquist/jobkit/internal/blacklist"
 	"github.com/nstranquist/jobkit/internal/jd"
+	"github.com/nstranquist/jobkit/internal/legitimacy"
 	"github.com/nstranquist/jobkit/internal/profile"
 )
 
@@ -32,11 +34,27 @@ type MissingSkill struct {
 
 // Result is the full gap report.
 type Result struct {
-	Score     float64        `json:"score"` // 0..100 weighted coverage
-	Seniority string         `json:"jd_seniority"`
-	Matched   []MatchedSkill `json:"matched"`
-	Missing   []MissingSkill `json:"missing"`
-	Advice    []string       `json:"advice"`
+	Score      float64            `json:"score"` // 0..100 weighted coverage
+	Seniority  string             `json:"jd_seniority"`
+	Matched    []MatchedSkill     `json:"matched"`
+	Missing    []MissingSkill     `json:"missing"`
+	Advice     []string           `json:"advice"`
+	Legitimacy *legitimacy.Result `json:"legitimacy,omitempty"`
+	Untrusted  []string           `json:"untrusted,omitempty"`
+	Blacklist  *blacklist.Hit     `json:"blacklist,omitempty"`
+}
+
+// AttachSignals records legitimacy, untrusted-JD flags, and a blacklist hit
+// beside the fit score. It must not change Score.
+func AttachSignals(res *Result, raw, company string, list blacklist.List) *Result {
+	if res == nil {
+		return nil
+	}
+	leg := legitimacy.Classify(raw)
+	res.Legitimacy = &leg
+	res.Untrusted = jd.InstructionFlags(raw)
+	res.Blacklist = list.Match(company)
+	return res
 }
 
 // Score evaluates p against j.

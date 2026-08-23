@@ -1,0 +1,643 @@
+<!doctype html>
+<!--
+  JobKit user guide
+  Single-file HTML. Open in a browser. No build step.
+  Product: ~/tools/jobkit  (product.jobkit, v0.9.0)
+  Mirror:  nicos-tools/docs/human/jobkit.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JobKit — user guide</title>
+<style>
+  :root {
+    --bg: #0e1117; --panel: #161b22; --panel-2: #1c2230; --line: #262d3a;
+    --text: #c9d1d9; --text-strong: #f0f6fc; --muted: #7d8590;
+    --accent: #79c0ff; --accent-soft: #1f3047;
+    --good: #7ee787; --good-soft: #122a17;
+    --warn: #f0a868; --warn-soft: #2a1f12;
+    --bad: #ff7b72; --bad-soft: #2a1414;
+    --violet: #d2a8ff; --violet-soft: #1f1428;
+    --teal: #56d4dc; --teal-soft: #102628;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  }
+  body.light {
+    --bg: #fbfbfa; --panel: #ffffff; --panel-2: #f5f6f8; --line: #e0e3e9;
+    --text: #1f2328; --text-strong: #0d1117; --muted: #6e7781;
+    --accent: #0969da; --accent-soft: #ddf4ff;
+    --good: #1a7f37; --good-soft: #dafbe1;
+    --warn: #9a6700; --warn-soft: #fff8c5;
+    --bad: #cf222e; --bad-soft: #ffebe9;
+    --violet: #8250df; --violet-soft: #fbefff;
+    --teal: #1b7b85; --teal-soft: #d9f1f3;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
+  }
+  .skip {
+    position: absolute; left: -999px; top: 8px; background: var(--accent);
+    color: #0e1117; padding: 8px 12px; border-radius: 6px; z-index: 100;
+  }
+  .skip:focus { left: 12px; }
+  .toolbar {
+    position: fixed; top: 16px; right: 20px; display: flex; gap: 6px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 4px; z-index: 50;
+  }
+  .toolbar button {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 5px 10px; border-radius: 4px; cursor: pointer;
+    font: inherit; font-size: 12px;
+  }
+  .toolbar button.on { background: var(--panel-2); color: var(--text-strong); }
+  .toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 64px 132px 96px 28px; }
+  @media (max-width: 720px) { .wrap { padding: 64px 20px 80px; padding-right: 20px; padding-top: 72px; } }
+  .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .crumbs a { color: var(--accent); text-decoration: none; }
+  .crumbs a:hover { text-decoration: underline; }
+  header.hero {
+    border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 28px;
+  }
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 12px;
+    color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 12px; margin-bottom: 14px;
+  }
+  h1 {
+    color: var(--text-strong); font-size: clamp(32px, 5vw, 42px);
+    margin: 0 0 10px; font-weight: 650; letter-spacing: -0.03em;
+  }
+  h1 .v { color: var(--muted); font-weight: 450; font-size: 0.55em; }
+  .lede { color: var(--muted); font-size: 18px; margin: 0; max-width: 72ch; }
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; list-style: none;
+    margin: 22px 0 0; padding: 0; font-size: 14px;
+  }
+  .toc a { color: var(--muted); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+  h2, h3, header.hero, .note, .warn-box, .fail-box, .assert {
+    scroll-margin-top: 56px;
+  }
+  h2 {
+    color: var(--text-strong); font-size: 13px; margin: 52px 0 14px;
+    font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  h2 .num { color: var(--muted); font-weight: 450; margin-right: 10px; }
+  h3 { color: var(--text-strong); font-size: 18px; margin: 26px 0 8px; font-weight: 650; }
+  p { margin: 0 0 12px; max-width: 78ch; }
+  a { color: var(--accent); }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 78ch; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: var(--mono); font-size: 0.88em;
+    background: var(--panel-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 4px; color: var(--text-strong);
+  }
+  pre {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono);
+    font-size: 13px; line-height: 1.55; color: var(--text-strong);
+    margin: 0 0 16px; position: relative;
+  }
+  pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
+  pre.copyable { cursor: pointer; }
+  pre.copyable::before {
+    content: "copy"; position: absolute; right: 10px; top: 8px; font-size: 10px;
+    color: var(--muted); border: 1px solid var(--line); padding: 2px 6px;
+    border-radius: 4px; background: var(--panel); text-transform: uppercase;
+    letter-spacing: 0.05em; font-family: var(--sans);
+  }
+  pre.copyable:hover::before { color: var(--accent); border-color: var(--accent); }
+  pre.copyable.copied::before { content: "copied"; color: var(--good); border-color: var(--good); }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px; margin: 16px 0 8px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card p { color: var(--muted); font-size: 14px; margin: 0; }
+  .card .k { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .pair {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0;
+  }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+  .is { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+  .isnot { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+  .flow {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px; margin: 16px 0; counter-reset: step;
+  }
+  @media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .flow { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 14px 16px;
+  }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    display: inline-grid; place-items: center; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--accent); color: #0e1117;
+    font-size: 12px; font-weight: 700; margin-bottom: 8px;
+  }
+  .step strong { display: block; color: var(--text-strong); margin-bottom: 4px; }
+  .step span { color: var(--muted); font-size: 14px; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 14.5px;
+    margin: 12px 0 20px; display: table;
+  }
+  th, td {
+    text-align: left; padding: 9px 11px; border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  td code { white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+  .note, .warn-box, .fail-box, .assert {
+    border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 16px 0; font-size: 14.5px;
+  }
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); }
+  .warn-box { border-left: 3px solid var(--warn); background: var(--warn-soft); }
+  .fail-box { border-left: 3px solid var(--bad); background: var(--bad-soft); }
+  .assert { border-left: 3px solid var(--good); background: var(--good-soft); }
+  .note .label, .warn-box .label, .fail-box .label, .assert .label {
+    display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .note .label { color: var(--accent); }
+  .warn-box .label { color: var(--warn); }
+  .fail-box .label { color: var(--bad); }
+  .assert .label { color: var(--good); }
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--muted); margin-right: 4px;
+  }
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="toolbar" role="group" aria-label="Color mode">
+  <button id="t-dark" class="on" type="button" onclick="setMode('dark')">dark</button>
+  <button id="t-light" type="button" onclick="setMode('light')">light</button>
+</div>
+<div class="wrap" id="content">
+  <p class="crumbs">JobKit · user guide · 2026-08-14</p>
+
+  <header class="hero">
+    <span class="badge">local-first CLI · MIT · v0.9.0</span>
+    <h1>JobKit <span class="v">user guide</span></h1>
+    <p class="lede">
+      JobKit is a local job-search toolkit. It finds roles on public company boards,
+      scores fit against a trusted profile, prepares application packages, and
+      tracks the funnel. It does not submit applications. It does not invent experience.
+    </p>
+    <ul class="toc">
+      <li><a href="#contract">Contract</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#first-hour">First hour</a></li>
+      <li><a href="#week">Weekly loop</a></li>
+      <li><a href="#surfaces">Surfaces</a></li>
+      <li><a href="#search">Search</a></li>
+      <li><a href="#eligibility">Eligibility</a></li>
+      <li><a href="#inbox">Inbox</a></li>
+      <li><a href="#apply">Apply packages</a></li>
+      <li><a href="#track">Tracker</a></li>
+      <li><a href="#coach">Coach</a></li>
+      <li><a href="#state">State</a></li>
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#fix">Fix problems</a></li>
+    </ul>
+  </header>
+
+  <h2 id="contract"><span class="num">01</span>Contract</h2>
+  <div class="pair">
+    <article class="card is">
+      <h3>JobKit does</h3>
+      <p>Keep candidate state on this computer. Score fit from a reviewed profile. Prepare packages a human can send. Record history in append-only ledgers.</p>
+    </article>
+    <article class="card isnot">
+      <h3>JobKit does not</h3>
+      <p>Submit a form. Send outreach. Scrape LinkedIn, Wellfound, Google Jobs, or Indeed. Invent a metric, skill, or claim. Publish <code>~/.jobkit</code>.</p>
+    </article>
+  </div>
+  <div class="fail-box">
+    <span class="label">Warning</span>
+    A human must review every package before any send. JobKit never clicks submit.
+    If <code>~/.jobkit/claims.yaml</code> exists, generated numbers must match that allowlist.
+  </div>
+  <div class="note">
+    <span class="label">Search boundary</span>
+    <code>jobkit find</code> and saved searches query public Greenhouse, Lever, and Ashby APIs only.
+    Use other boards by hand. Apply on the company URL. Tag the lane with <code>--source</code>.
+  </div>
+
+  <h2 id="install"><span class="num">02</span>Install</h2>
+  <p>Build the binary from the JobKit repository. Then put it on your <code>PATH</code>.</p>
+  <pre class="copyable"><code>cd ~/tools/jobkit
+make install
+jobkit version</code></pre>
+  <p>The default state directory is <code>~/.jobkit</code>. Set <code>JOBKIT_HOME</code> to use a different directory.</p>
+  <div class="assert">
+    <span class="label">Proof</span>
+    <code>jobkit version</code> prints <code>0.9.0</code>. <code>make demo</code> runs the full walkthrough in an isolated home and never reads your real state.
+  </div>
+
+  <h2 id="first-hour"><span class="num">03</span>First hour</h2>
+  <div class="flow">
+    <div class="step"><strong>Profile</strong><span>Create or bootstrap the YAML profile. Validate it before any search.</span></div>
+    <div class="step"><strong>Constraints</strong><span>Write hard limits in the eligibility file. Fit and eligibility stay separate.</span></div>
+    <div class="step"><strong>Discover</strong><span>Run a saved search or <code>find</code>. Queue matches into the inbox.</span></div>
+    <div class="step"><strong>Prepare</strong><span>Build an apply-plan. Review the package. Then submit by hand.</span></div>
+  </div>
+  <pre class="copyable"><code>jobkit profile bootstrap --source ~/Downloads/resume.pdf --out auto
+jobkit profile validate
+
+jobkit eligibility init --home "St. Louis, MO" \
+  --countries "United States,USA,US" --languages English \
+  --years 7 --relocation-open
+
+jobkit search init
+jobkit find backend go --targets ai-infra --remote \
+  --sort opportunity --persona backend-platform \
+  --eligibility actionable --inbox
+
+jobkit inbox list
+jobkit apply-plan &lt;inbox-id&gt; --tone warm</code></pre>
+  <p>If you already have a reviewed profile, skip bootstrap and run <code>jobkit profile validate</code>.</p>
+
+  <h2 id="week"><span class="num">04</span>Weekly loop</h2>
+  <p>The default slate is 10 roles: 5 platform, 3 full-stack, 1 adoption, 1 stretch. One employer can appear at most twice.</p>
+  <table>
+    <thead><tr><th>When</th><th>Command</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Monday</td>
+        <td><code>jobkit search digest --inbox --out auto</code></td>
+        <td>Review the digest. Then run <code>jobkit inbox slate --out auto</code>.</td>
+      </tr>
+      <tr>
+        <td>Daily</td>
+        <td><code>jobkit apply-plan &lt;id&gt;</code></td>
+        <td>Review the package. Submit on the company site. Track the send.</td>
+      </tr>
+      <tr>
+        <td>Daily</td>
+        <td><code>jobkit inbox outreach &lt;id&gt;</code></td>
+        <td>Edit the draft. Send the note yourself. Record the contact.</td>
+      </tr>
+      <tr>
+        <td>Friday</td>
+        <td><code>jobkit --json track stats</code></td>
+        <td>Compare conversion by <code>lane</code> and <code>source</code>.</td>
+      </tr>
+    </tbody>
+  </table>
+  <pre class="copyable"><code>jobkit inbox slate --out auto
+jobkit inbox stale --days 14
+jobkit track followups --days 7
+jobkit calibrate report --persona backend-platform</code></pre>
+  <div class="warn-box">
+    <span class="label">Caution</span>
+    Do not add a SpaceX-family saved search to the default digest. That board is large and mostly on-site.
+    If relocation is open, run a separate find against the <code>spacex-family</code> target.
+  </div>
+  <pre class="copyable"><code>jobkit find "software engineer" --targets spacex-family \
+  --sort opportunity --persona backend-platform --eligibility actionable</code></pre>
+
+  <h2 id="surfaces"><span class="num">05</span>Surfaces</h2>
+  <div class="grid">
+    <article class="card">
+      <div class="k">profile</div>
+      <h3>Trusted profile</h3>
+      <p>One YAML file. Skills, bullets, and aliases feed every later command.</p>
+    </article>
+    <article class="card">
+      <div class="k">eligibility</div>
+      <h3>Hard constraints</h3>
+      <p>Country, language, years, role family, travel, management, and sales stay out of fit score.</p>
+    </article>
+    <article class="card">
+      <div class="k">find / search</div>
+      <h3>Public boards</h3>
+      <p>Greenhouse, Lever, and Ashby. Opportunity rank uses pay, freshness, saturation, and persona.</p>
+    </article>
+    <article class="card">
+      <div class="k">company / contact</div>
+      <h3>Hidden market</h3>
+      <p>Target companies, dated hiring signals, and a referral ledger.</p>
+    </article>
+    <article class="card">
+      <div class="k">inbox</div>
+      <h3>Pre-application queue</h3>
+      <p>Deduped jobs with source, fit, eligibility, and last-seen provenance.</p>
+    </article>
+    <article class="card">
+      <div class="k">match / apply</div>
+      <h3>Packages</h3>
+      <p>Resume, letter, prep, and receipts. No submit. Claims fail closed when the allowlist exists.</p>
+    </article>
+    <article class="card">
+      <div class="k">track</div>
+      <h3>Funnel ledger</h3>
+      <p>Append-only events. Stats by lane, source, and resume version.</p>
+    </article>
+    <article class="card">
+      <div class="k">coach</div>
+      <h3>Interview drills</h3>
+      <p>Public evidence only. Deterministic score. Optional model feedback is advisory.</p>
+    </article>
+  </div>
+
+  <h2 id="search"><span class="num">06</span>Search</h2>
+  <p>Name a board as <code>provider:slug</code>. Groups start with <code>@</code>. Target packs start with <code>#</code>.</p>
+  <table>
+    <thead><tr><th>Provider</th><th>Spec</th><th>Typical URL</th></tr></thead>
+    <tbody>
+      <tr><td>Greenhouse</td><td><code>greenhouse:stripe</code></td><td><code>job-boards.greenhouse.io/stripe</code></td></tr>
+      <tr><td>Ashby</td><td><code>ashby:OpenAI</code></td><td><code>jobs.ashbyhq.com/OpenAI</code></td></tr>
+      <tr><td>Lever</td><td><code>lever:includedhealth</code></td><td><code>jobs.lever.co/includedhealth</code></td></tr>
+    </tbody>
+  </table>
+  <pre class="copyable"><code>jobkit find "platform engineer" --boards greenhouse:cloudflare,ashby:Temporal
+jobkit search run platform-engineering-weekly --inbox
+jobkit search digest --inbox --out auto</code></pre>
+  <p>One stale board prints a warning and the rest of the results still return. Pass <code>--strict</code> to fail on the first board error.</p>
+  <p>Sort with <code>--sort opportunity|comp|freshness</code>. Filter pay with <code>--min-comp N</code>. Bias rank with <code>--persona</code> values <code>agent-infra</code>, <code>ai-product</code>, <code>devtools</code>, or <code>backend-platform</code>.</p>
+  <p>After <code>jobkit calibrate apply</code> writes <code>~/.jobkit/calibration.yaml</code>, search uses those weights automatically.</p>
+
+  <h3>Source tags</h3>
+  <p>Any source string is valid. Use these tokens so Friday stats compare lanes.</p>
+  <p>
+    <span class="pill">ats</span>
+    <span class="pill">google-jobs</span>
+    <span class="pill">linkedin</span>
+    <span class="pill">wellfound</span>
+    <span class="pill">yc</span>
+    <span class="pill">trueup</span>
+    <span class="pill">hn</span>
+    <span class="pill">referral</span>
+    <span class="pill">inbound</span>
+    <span class="pill">community</span>
+    <span class="pill">stl</span>
+    <span class="pill">cold</span>
+  </p>
+  <p>Keep any longer operator source list outside this repository. The tokens above are the public vocabulary.</p>
+
+  <h2 id="eligibility"><span class="num">07</span>Eligibility</h2>
+  <p>Eligibility is not fit. A high keyword score cannot promote an ineligible role into an apply package.</p>
+  <table>
+    <thead><tr><th>Class</th><th>Meaning</th><th>Default search</th></tr></thead>
+    <tbody>
+      <tr><td><code>eligible</code></td><td>The role meets every hard constraint.</td><td>Included in <code>actionable</code></td></tr>
+      <tr><td><code>review</code></td><td>A constraint is unknown. Example: relocation needed.</td><td>Included in <code>actionable</code></td></tr>
+      <tr><td><code>ineligible</code></td><td>A hard constraint fails.</td><td>Excluded</td></tr>
+    </tbody>
+  </table>
+  <p><code>apply</code> and <code>apply-plan</code> fail closed on an ineligible role. A human can pass <code>--override-eligibility</code>. JobKit records that override on the tracker and in the package receipt.</p>
+
+  <h2 id="inbox"><span class="num">08</span>Inbox</h2>
+  <p>The inbox is the pre-application queue. IDs are stable. A repeat save of the same posting does not create a second row.</p>
+  <pre class="copyable"><code>jobkit inbox list
+jobkit inbox show &lt;id&gt;
+jobkit inbox set &lt;id&gt; --status shortlisted
+jobkit inbox note &lt;id&gt; "hiring manager is ex-Bayer"
+jobkit inbox form &lt;id&gt; --format js --out auto
+jobkit inbox outreach &lt;id&gt; --channel linkedin --out auto</code></pre>
+  <p><code>inbox form --format js</code> emits a DevTools snippet. The snippet fills standard Greenhouse, Lever, and label-matched fields. It never touches uploads, EEO fields, or submit.</p>
+  <p>Inbox status moves through <code>new</code>, <code>shortlisted</code>, <code>planned</code>, and <code>applied</code>. A repeated <code>apply-plan</code> on an active item reuses the tracker record. It does not move an applied, skipped, or archived item back to <code>planned</code>.</p>
+
+  <h2 id="apply"><span class="num">09</span>Apply packages</h2>
+  <p>A job description argument can be a file, a supported posting URL, stdin (<code>-</code>), or an inbox id.</p>
+  <pre class="copyable"><code>jobkit match https://job-boards.greenhouse.io/acme/jobs/123
+jobkit apply-plan &lt;inbox-id&gt; --tone warm
+jobkit apply https://job-boards.greenhouse.io/acme/jobs/123 --tone warm</code></pre>
+  <p>Output lands in <code>~/.jobkit/out/&lt;id&gt;/</code>. A typical package contains the tailored resume, letter, prep sheet, match receipt, eligibility receipt, and the raw job text.</p>
+  <p>Resume formats are <code>md</code>, <code>txt</code>, <code>html</code>, and <code>pdf</code>. PDF export uses headless Chrome. Set <code>JOBKIT_CHROME_BIN</code> if detection fails.</p>
+  <p>Letter tones are <code>professional</code>, <code>warm</code>, and <code>direct</code>. The letter names the top required gap instead of hiding it.</p>
+  <div class="assert">
+    <span class="label">Claims gate</span>
+    Run <code>jobkit claims init</code> from the profile. Then run <code>jobkit claims check</code>.
+    Resume, letter, apply, and apply-plan fail if a number is not on the allowlist.
+    Contact details and calendar years are exempt.
+  </div>
+
+  <h2 id="track"><span class="num">10</span>Tracker</h2>
+  <p>The tracker is an append-only JSONL ledger. State is a replay. Events are never rewritten.</p>
+  <p>Status order: <code>discovered</code>, <code>interested</code>, <code>applied</code>, <code>screening</code>, <code>interview</code>, <code>offer</code>, <code>accepted</code>. Terminal status values are <code>rejected</code>, <code>withdrawn</code>, and <code>ghosted</code>.</p>
+  <pre class="copyable"><code>jobkit track set &lt;id&gt; --status applied \
+  --lane platform --source ats --resume-version v1.9.0
+jobkit --json track stats
+jobkit track followups --days 7
+jobkit track remind --format ics --out auto</code></pre>
+  <p>Pass a nicos-resume package receipt with <code>--resume-manifest</code>. JobKit rejects candidate or history manifests, failed gates, and a file whose digest does not match the receipt.</p>
+  <p><code>track stats</code> groups conversion by tag. <code>lane</code> and <code>source</code> are the useful Friday cohorts.</p>
+
+  <h2 id="coach"><span class="num">11</span>Coach</h2>
+  <p>Coach has two loops. <code>jobkit coach study</code> teaches hiring-pin OSS courses plus extra honest OSS modules and scores practice against expected concepts. <code>jobkit coach source|deck|run</code> still builds JD-tied interview drills from a reviewed public evidence bundle. Private catalog paths are rejected on import.</p>
+  <pre class="copyable"><code>jobkit coach study
+jobkit coach study --module docs-puller --answer "local-first sqlite fts5 bm25 eval hit@1"
+
+# nicos-tools path: check resume facts, then import.
+ndev catalog portfolio coach sync
+
+# Standalone path:
+jobkit coach source import examples/coach-source.json
+jobkit coach deck --job posting.txt --mode mixed --minutes 20
+jobkit coach run latest
+jobkit coach stats
+jobkit coach serve</code></pre>
+  <p>Open the printed loopback URL after <code>coach serve</code>. The server binds only to loopback addresses. It uses an ephemeral token and a protected cookie.</p>
+  <table>
+    <thead><tr><th>Area</th><th>Weight</th><th>What JobKit checks</th></tr></thead>
+    <tbody>
+      <tr><td>Structure</td><td>25</td><td>The answer has the required structure.</td></tr>
+      <tr><td>Decisions and tradeoffs</td><td>25</td><td>Concepts, alternatives, constraints, and risks.</td></tr>
+      <tr><td>Role relevance</td><td>20</td><td>Skills from the target job description.</td></tr>
+      <tr><td>Evidence safety</td><td>20</td><td>Every quantified claim matches an imported claim.</td></tr>
+      <tr><td>Concision</td><td>10</td><td>Length fits the allotted response time.</td></tr>
+    </tbody>
+  </table>
+  <div class="warn-box">
+    <span class="label">Caution</span>
+    An unsupported quantified claim caps the score below 60. JobKit schedules that answer for review in one day.
+    Model feedback cannot replace the deterministic score. A provider name that ends in <code>-hosted</code> sends the practice request and answer text to that provider.
+  </div>
+
+  <h2 id="state"><span class="num">12</span>State</h2>
+  <p>All personal state lives under <code>JOBKIT_HOME</code>. The default is <code>~/.jobkit</code>. Do not commit that directory.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>File</th><th>Kind</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>profile.yaml</code></td><td>YAML</td><td>Trusted skills and bullets</td></tr>
+      <tr><td><code>eligibility.yaml</code></td><td>YAML</td><td>Hard constraints</td></tr>
+      <tr><td><code>searches.yaml</code></td><td>YAML</td><td>Board groups, targets, saved queries</td></tr>
+      <tr><td><code>companies.yaml</code></td><td>YAML</td><td>Target companies and ATS slugs</td></tr>
+      <tr><td><code>claims.yaml</code></td><td>YAML</td><td>Verified number allowlist</td></tr>
+      <tr><td><code>calibration.yaml</code></td><td>YAML</td><td>Learned opportunity weights</td></tr>
+      <tr><td><code>inbox.jsonl</code></td><td>JSONL</td><td>Pre-application queue</td></tr>
+      <tr><td><code>applications.jsonl</code></td><td>JSONL</td><td>Application events</td></tr>
+      <tr><td><code>contacts.jsonl</code></td><td>JSONL</td><td>People and referral state</td></tr>
+      <tr><td><code>telemetry.jsonl</code></td><td>JSONL</td><td>Command identity, duration, typed error</td></tr>
+      <tr><td><code>out/</code></td><td>dir</td><td>Generated packages</td></tr>
+      <tr><td><code>coach/</code></td><td>dir</td><td>Public source, decks, private answers</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>YAML files reject unknown fields and trailing documents. JSONL writers take a file lock before each append. New files are private: Unix mode <code>0600</code>, Windows ACL for the current user.</p>
+  <p>Telemetry schema v2 stores an allowlisted command id, success, duration, and typed error class. It does not store arguments, paths, output, or raw errors. Set <code>JOBKIT_TELEMETRY=off</code> to disable it.</p>
+  <pre class="copyable"><code>jobkit doctor telemetry
+jobkit doctor telemetry --migrate</code></pre>
+  <p>Run <code>--migrate</code> only after you review the counts. Migration removes legacy arguments and raw errors.</p>
+
+  <h2 id="commands"><span class="num">13</span>Command map</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Need</th><th>Command</th></tr></thead>
+    <tbody>
+      <tr><td>Create or inspect the profile</td><td><code>jobkit init</code> · <code>profile show|validate|path</code> · <code>profile bootstrap --source resume.pdf</code></td></tr>
+      <tr><td>Set hard constraints</td><td><code>jobkit eligibility init|check|show|path</code></td></tr>
+      <tr><td>Saved searches</td><td><code>jobkit search init|list|show|run|digest</code></td></tr>
+      <tr><td>One-shot board search</td><td><code>jobkit find &lt;query&gt; --targets NAME --inbox</code></td></tr>
+      <tr><td>Target companies</td><td><code>jobkit company add|signal|list|show</code></td></tr>
+      <tr><td>People and referrals</td><td><code>jobkit contact add|import|referral|touch</code></td></tr>
+      <tr><td>Parse a posting</td><td><code>jobkit jd parse|fetch</code></td></tr>
+      <tr><td>Score fit</td><td><code>jobkit match &lt;jd&gt;</code></td></tr>
+      <tr><td>Build materials</td><td><code>jobkit resume build</code> · <code>letter build</code> · <code>prep</code></td></tr>
+      <tr><td>Reviewable package</td><td><code>jobkit apply-plan &lt;jd|url|inbox-id&gt;</code></td></tr>
+      <tr><td>Package and track</td><td><code>jobkit apply &lt;jd&gt;</code></td></tr>
+      <tr><td>Claims allowlist</td><td><code>jobkit claims init|check|show|path</code></td></tr>
+      <tr><td>Inbox triage</td><td><code>jobkit inbox list|slate|stale|outreach|form</code></td></tr>
+      <tr><td>Funnel</td><td><code>jobkit track add|set|stats|followups|remind</code></td></tr>
+      <tr><td>Learn ranking</td><td><code>jobkit calibrate report|apply</code></td></tr>
+      <tr><td>Interview practice</td><td><code>jobkit coach source|deck|run|stats|serve|study</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Run <code>jobkit help</code> for the full verb list. Run <code>jobkit help --compact</code> in an agent context window.</p>
+
+  <h2 id="agents"><span class="num">14</span>Agent contract</h2>
+  <p>Every verb accepts <code>--json</code>. Success is <code>{ok, data}</code>. Failure is <code>{ok:false, error:{code, message, hint}}</code>.</p>
+  <table>
+    <thead><tr><th>Exit</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>Success</td></tr>
+      <tr><td><code>1</code></td><td>Runtime error</td></tr>
+      <tr><td><code>2</code></td><td><code>INVALID_ARGS</code></td></tr>
+      <tr><td><code>3</code></td><td><code>NOT_FOUND</code></td></tr>
+    </tbody>
+  </table>
+  <p>Flags can appear anywhere. Forms are <code>--k v</code> and <code>--k=v</code>.</p>
+  <p>An agent can prepare a package, a form-fill snippet, and an outreach draft. An agent must not submit a form or send a message without a human review.</p>
+
+  <h2 id="env"><span class="num">15</span>Environment</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>JOBKIT_HOME</code></td><td>State directory. Default <code>~/.jobkit</code>.</td></tr>
+      <tr><td><code>JOBKIT_PROFILE</code></td><td>Profile path override for a second persona.</td></tr>
+      <tr><td><code>JOBKIT_TELEMETRY=off</code></td><td>Disable per-run telemetry.</td></tr>
+      <tr><td><code>JOBKIT_CHROME_BIN</code></td><td>Chrome or Chromium binary for PDF export.</td></tr>
+      <tr><td><code>JOBKIT_GREENHOUSE_BASE</code></td><td>Test override for the Greenhouse API.</td></tr>
+      <tr><td><code>JOBKIT_LEVER_BASE</code></td><td>Test override for the Lever API.</td></tr>
+      <tr><td><code>JOBKIT_ASHBY_BASE</code></td><td>Test override for the Ashby API.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="fix"><span class="num">16</span>Fix problems</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Search returns nothing</td>
+        <td>Wrong board slug, or <code>remote: true</code> dropped on-site roles</td>
+        <td>Run <code>jobkit search show NAME</code>. Confirm the slug on the company careers page.</td>
+      </tr>
+      <tr>
+        <td>Board warning on stderr</td>
+        <td>One ATS in the group failed</td>
+        <td>Keep the partial result, or pass <code>--strict</code> to fail the run.</td>
+      </tr>
+      <tr>
+        <td>Apply-plan refuses the role</td>
+        <td>Eligibility is <code>ineligible</code></td>
+        <td>Read the reasons. Change the policy, or record <code>--override-eligibility</code>.</td>
+      </tr>
+      <tr>
+        <td>Resume or letter fails claims</td>
+        <td>A number is not on the allowlist</td>
+        <td>Run <code>jobkit claims check</code>. Add a verified claim, or remove the number.</td>
+      </tr>
+      <tr>
+        <td>PDF export fails</td>
+        <td>Chrome is not on <code>PATH</code></td>
+        <td>Set <code>JOBKIT_CHROME_BIN</code> to the browser binary.</td>
+      </tr>
+      <tr>
+        <td>Coach rejects the deck</td>
+        <td>The imported source changed</td>
+        <td>Import the new bundle. Then build a new deck.</td>
+      </tr>
+      <tr>
+        <td>Digest is huge and on-site</td>
+        <td>A relocation board is in the default search set</td>
+        <td>Remove that saved search. Run an explicit <code>find --targets</code> instead.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 id="related"><span class="num">17</span>Related</h2>
+  <ul>
+    <li>Install and design notes: JobKit <code>README.md</code></li>
+    <li>Stack and safety decisions: <code>docs/architecture.md</code></li>
+    <li>Coach operator page in this tree: <a href="jobkit-coach.html">jobkit-coach.html</a></li>
+    <li>Source stack for discovery boards: operator-owned list outside this repository</li>
+    <li>Starlight comparison site (same facts): <code>docs/starlight/</code> at <a href="http://127.0.0.1:4322">http://127.0.0.1:4322</a></li>
+  </ul>
+
+  <footer>
+    JobKit v0.9.0 · local-first · MIT.
+    Personal state under <code>~/.jobkit</code> is never part of a source publication.
+    This page is the human user guide. Markdown in the repository stays the source for agents and release notes.
+  </footer>
+</div>
+<script>
+function setMode(m) {
+  document.body.classList.toggle('light', m === 'light');
+  document.getElementById('t-dark').classList.toggle('on', m === 'dark');
+  document.getElementById('t-light').classList.toggle('on', m === 'light');
+  try { localStorage.setItem('jobkit-guide-mode', m); } catch (e) {}
+}
+try {
+  var saved = localStorage.getItem('jobkit-guide-mode');
+  if (saved === 'light') setMode('light');
+} catch (e) {}
+document.querySelectorAll('pre.copyable').forEach(function (pre) {
+  pre.addEventListener('click', function () {
+    var text = pre.innerText.replace(/\s*copy\s*$/i, '').replace(/\s*copied\s*$/i, '');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () {
+        pre.classList.add('copied');
+        setTimeout(function () { pre.classList.remove('copied'); }, 1200);
+      });
+    }
+  });
+});
+</script>
+</body>
+</html>

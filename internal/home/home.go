@@ -57,6 +57,10 @@ func ClaimsPath() (string, error) { return join("claims.yaml") }
 // opportunity scoring.
 func EligibilityPath() (string, error) { return join("eligibility.yaml") }
 
+// BlacklistPath is the user-owned do-not-apply company list. JobKit never
+// writes company names into this file.
+func BlacklistPath() (string, error) { return join("blacklist.yaml") }
+
 // LedgerPath is the append-only application-event ledger.
 func LedgerPath() (string, error) { return join("applications.jsonl") }
 

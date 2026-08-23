@@ -15,8 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/blacklist"
 	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/jobsearch"
+	"github.com/nstranquist/jobkit/internal/legitimacy"
 	"github.com/nstranquist/jobkit/internal/privatefs"
 )
 
@@ -69,6 +71,8 @@ type Job struct {
 	Compensation *jobsearch.Compensation `json:"compensation,omitempty"`
 	Opportunity  jobsearch.Opportunity   `json:"opportunity,omitempty"`
 	Eligibility  *eligibility.Result     `json:"eligibility,omitempty"`
+	Legitimacy   *legitimacy.Result      `json:"legitimacy,omitempty"`
+	Blacklist    *blacklist.Hit          `json:"blacklist,omitempty"`
 	Liveness     string                  `json:"liveness,omitempty"`
 	JDText       string                  `json:"jd_text,omitempty"`
 	Fingerprint  string                  `json:"fingerprint,omitempty"`

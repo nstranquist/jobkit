@@ -17,8 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nstranquist/jobkit/internal/blacklist"
 	"github.com/nstranquist/jobkit/internal/eligibility"
 	"github.com/nstranquist/jobkit/internal/jd"
+	"github.com/nstranquist/jobkit/internal/legitimacy"
 )
 
 type Board struct {
@@ -43,6 +45,8 @@ type Job struct {
 	Compensation *Compensation       `json:"compensation,omitempty"`
 	Opportunity  Opportunity         `json:"opportunity,omitempty"`
 	Eligibility  *eligibility.Result `json:"eligibility,omitempty"`
+	Legitimacy   *legitimacy.Result  `json:"legitimacy,omitempty"`
+	Blacklist    *blacklist.Hit      `json:"blacklist,omitempty"`
 }
 
 type Options struct {
@@ -58,6 +62,7 @@ type Options struct {
 	Weights           OpportunityWeights
 	EligibilityPolicy *eligibility.Policy
 	EligibilityFilter string
+	Blacklist         *blacklist.List
 	Client            *http.Client
 }
 
@@ -208,16 +213,11 @@ func SearchReport(ctx context.Context, opts Options) (SearchResult, error) {
 }
 
 func fetchBoard(ctx context.Context, client *http.Client, board Board) ([]Job, error) {
-	switch board.Provider {
-	case "greenhouse":
-		return fetchGreenhouse(ctx, client, board)
-	case "lever":
-		return fetchLever(ctx, client, board)
-	case "ashby":
-		return fetchAshby(ctx, client, board)
-	default:
+	provider, ok := LookupProvider(board.Provider)
+	if !ok {
 		return nil, fmt.Errorf("unknown provider %q", board.Provider)
 	}
+	return provider.Fetch(ctx, client, board)
 }
 
 func parseBoardURL(raw string) (Board, error) {
@@ -227,38 +227,19 @@ func parseBoardURL(raw string) (Board, error) {
 	}
 	host := strings.ToLower(u.Hostname())
 	parts := splitPath(u.Path)
-	switch {
-	case strings.Contains(host, "greenhouse.io"):
-		if len(parts) == 0 {
-			return Board{}, fmt.Errorf("could not infer Greenhouse board token from %q", raw)
+	for _, provider := range Providers() {
+		if slug, ok := provider.Detect(host, parts); ok {
+			return Board{Provider: provider.ID(), Slug: slug}, nil
 		}
-		return Board{Provider: "greenhouse", Slug: parts[0]}, nil
-	case host == "jobs.lever.co" || host == "jobs.eu.lever.co":
-		if len(parts) == 0 {
-			return Board{}, fmt.Errorf("could not infer Lever site from %q", raw)
-		}
-		return Board{Provider: "lever", Slug: parts[0]}, nil
-	case host == "jobs.ashbyhq.com":
-		if len(parts) == 0 {
-			return Board{}, fmt.Errorf("could not infer Ashby job board name from %q", raw)
-		}
-		return Board{Provider: "ashby", Slug: parts[0]}, nil
-	default:
-		return Board{}, fmt.Errorf("unsupported board URL host %q", host)
 	}
+	return Board{}, fmt.Errorf("unsupported board URL host %q", host)
 }
 
 func normalizeProvider(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "greenhouse", "gh":
-		return "greenhouse"
-	case "lever":
-		return "lever"
-	case "ashby":
-		return "ashby"
-	default:
-		return ""
+	if p, ok := LookupProvider(raw); ok {
+		return p.ID()
 	}
+	return ""
 }
 
 func splitPath(path string) []string {
@@ -457,14 +438,40 @@ func filterJobs(jobs []Job, opts Options) []Job {
 			continue
 		}
 		job.Opportunity = BuildOpportunityWithWeights(job, opts.Persona, opts.Weights)
+		leg := legitimacy.Classify(job.Description)
+		job.Legitimacy = &leg
+		if opts.Blacklist != nil {
+			if hit := opts.Blacklist.Match(firstNonEmpty(job.Company, job.Board)); hit != nil {
+				job.Blacklist = hit
+				assessment := eligibility.Result{Status: eligibility.Ineligible}
+				if job.Eligibility != nil {
+					assessment = *job.Eligibility
+					assessment.Status = eligibility.Ineligible
+				}
+				assessment.Reasons = append(assessment.Reasons, eligibility.Reason{
+					Code: "blacklist", Category: "blacklist",
+					Summary: fmt.Sprintf("%s is on the user-owned company blacklist (matched %q)", firstNonEmpty(job.Company, job.Board), hit.Matched),
+				})
+				job.Eligibility = &assessment
+			}
+		}
 		if opts.EligibilityPolicy != nil {
 			assessment := eligibility.Evaluate(eligibility.Posting{
 				Title: job.Title, Location: job.Location, Remote: job.Remote, Description: job.Description,
 			}, *opts.EligibilityPolicy)
+			if job.Blacklist != nil {
+				assessment.Status = eligibility.Ineligible
+				assessment.Reasons = append(assessment.Reasons, eligibility.Reason{
+					Code: "blacklist", Category: "blacklist",
+					Summary: fmt.Sprintf("%s is on the user-owned company blacklist (matched %q)", firstNonEmpty(job.Company, job.Board), job.Blacklist.Matched),
+				})
+			}
 			job.Eligibility = &assessment
 			if !eligibility.Allows(opts.EligibilityFilter, assessment.Status) {
 				continue
 			}
+		} else if job.Blacklist != nil && !eligibility.Allows(opts.EligibilityFilter, eligibility.Ineligible) {
+			continue
 		}
 		out = append(out, job)
 	}

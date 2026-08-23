@@ -46,7 +46,8 @@ Actions use exact commit pins and test Linux, macOS, and Windows.
   Windows uses protected access-control lists. Existing legacy state changes
   only when the operator runs the explicit permission repair.
 - Coach scoring is deterministic and versioned by rubric. Provider feedback is
-  advisory and cannot replace the score.
+  advisory and cannot replace the score. Pin study uses the same claims gate
+  and the same localhost API as the CLI.
 - Provider commands have argument-count, argument-size, timeout, and output
   limits. Stored failures contain an exit code, not provider standard error.
 - The Coach server binds only to loopback addresses. It creates an ephemeral
@@ -58,6 +59,15 @@ Actions use exact commit pins and test Linux, macOS, and Windows.
   duration, and typed error class. It never records arguments, paths, output,
   or raw errors. `jobkit doctor telemetry` reports counts only. Migration of a
   valid legacy log requires `jobkit doctor telemetry --migrate`.
+- Posting text is data. Imperative or injection phrases are flagged, not executed.
+- Fetch and apply-plan fail closed on HTTP 404/410 and expired/closed bodies.
+- Legitimacy (`high|caution|suspicious`) and the user-owned company blacklist
+  sit beside fit and eligibility. They must not change the 0–100 match score.
+- User profile, claims, eligibility, blacklist, and the JSONL tracker are
+  operator state. Generated `out/` artifacts are disposable. A system pull
+  must never rewrite `~/.jobkit/profile.yaml`.
+- Public board clients (Greenhouse, Lever, Ashby) are a detect/fetch registry.
+  A new board is a new provider, not a `find` switch.
 
 ## When to revisit the stack
 

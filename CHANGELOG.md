@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+- **OSS study dump-fail** — explain/recall/defend answers that are only
+  expected-concept tokens fail (`verdict=dump`). Extra honest OSS modules
+  include SnapRef (public), Nicos DJ (Phase 0, no remote), and agenttrace
+  (local MIT until a remote exists). PageSkein is taught as the SnapRef extract.
+
+- **OSS pin study** — `jobkit coach study` teaches docs-puller, Nicos Catalog,
+  Openbook, agent-ops, keepawake, and JobKit in a fixed order. Each module
+  has purpose, architecture, a public demo path, talking points, and a
+  scored practice. Progress persists under `~/.jobkit/coach/study-results.jsonl`.
+  Untraceable quantified claims fail closed. The localhost UI calls the same
+  score and next-item functions as the CLI.
+
+- **Dead-posting liveness gate** — `jd fetch`, `match`, `apply-plan`, and
+  `inbox recheck` fail closed on HTTP 404/410 or an expired/closed body.
+  No match score or apply package is produced. Recheck does not change
+  the stored fit number.
+- **Legitimacy beside fit** — `high|caution|suspicious` is emitted next to
+  the 0–100 score. Ghost/scam/injection signals do not change fit.
+- **User-owned blacklist** — `~/.jobkit/blacklist.yaml` gates a company
+  like eligibility. JobKit never auto-fills it.
+- **Untrusted JD flags** — imperative / "ignore previous instructions"
+  phrases are recorded as data, not executed.
+- **Board registry** — Greenhouse, Lever, and Ashby resolve through a
+  detect/fetch provider registry. Public API URLs and fields are unchanged.
+
+- **Human user guide** — `docs/human/jobkit.html` is the operator-facing
+  guide for install, first hour, weekly loop, search boundary, eligibility,
+  inbox, apply packages, tracker, and coach.
+
+- **Richer tracker `--source` vocabulary** — help now lists
+  `ats|google-jobs|linkedin|wellfound|yc|trueup|hn|referral|inbound|community|stl|cold`.
+  The tracker still accepts any source string. `track stats` already groups
+  conversion by that tag.
+- **ATS-only search boundary documented** — `find` / saved searches query
+  Greenhouse, Lever, and Ashby only. Other discovery boards stay operator-side.
+
 ## [0.9.0] — 2026-08-12
 
 - **Evidence-linked interview coach** — `jobkit coach source|deck|run|stats`
