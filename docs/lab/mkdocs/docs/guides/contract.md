@@ -28,4 +28,3 @@ JobKit is a local job-search toolkit. It finds roles on public company boards, s
 !!! note "boundary]"
 
     `jobkit find` and saved searches query public Greenhouse, Lever, and Ashby APIs only. Use other boards by hand. Apply on the company URL. Tag the lane with `--source`.
-

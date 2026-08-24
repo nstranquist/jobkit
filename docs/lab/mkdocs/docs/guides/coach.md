@@ -30,4 +30,3 @@ Open the printed loopback URL after `coach serve`. The server binds only to loop
 !!! warning
 
     An unsupported quantified claim caps the score below 60. JobKit schedules that answer for review in one day. Model feedback cannot replace the deterministic score. A provider name that ends in `-hosted` sends the practice request and answer text to that provider.
-

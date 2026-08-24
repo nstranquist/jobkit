@@ -20,4 +20,3 @@ Letter tones are `professional`, `warm`, and `direct`. The letter names the top 
 !!! tip "gate]"
 
     Run `jobkit claims init` from the profile. Then run `jobkit claims check`. Resume, letter, apply, and apply-plan fail if a number is not on the allowlist. Contact details and calendar years are exempt.
-
