@@ -2747,7 +2747,7 @@ func saveJobsToInbox(jobs []jobsearch.Job, query, source string) (inboxSaveStats
 	stats := inboxSaveStats{}
 	for _, searchJob := range jobs {
 		job := inbox.FromSearchJob(searchJob)
-		id := inbox.NewID(job)
+		id := inbox.ResolveID(items, job)
 		if seen[id] {
 			if err := l.Append(inbox.Event{ID: id, Type: inbox.EvSeen, Source: source, Query: query, Job: &job}); err != nil {
 				return stats, envelope.New(envelope.CodeIOFailed, err.Error())
@@ -2845,7 +2845,7 @@ func cmdInbox(c *cli) error {
 		if !jd.IsURL(c.args[2]) {
 			job.URL = c.str("url")
 		}
-		id := inbox.NewID(job)
+		id := inbox.ResolveID(items, job)
 		if inbox.Has(items, id) {
 			return envelope.Newf(envelope.CodeInvalidArgs, "inbox already contains %s", id)
 		}
@@ -2992,6 +2992,63 @@ func cmdInbox(c *cli) error {
 			envelope.EmitData(summary)
 		} else {
 			fmt.Print(renderInboxSummary(summary))
+		}
+		return nil
+	case "duplicates":
+		groups := inbox.ActiveDuplicateGroups(items)
+		if c.bool("json") {
+			envelope.EmitData(map[string]any{"group_count": len(groups), "groups": groups})
+		} else {
+			fmt.Print(renderInboxDuplicates(groups))
+		}
+		return nil
+	case "dedupe":
+		plans := inbox.PlanDuplicateRepairs(items)
+		if !c.bool("apply") {
+			if c.bool("json") {
+				envelope.EmitData(map[string]any{"applied": false, "group_count": len(plans), "repairs": plans})
+			} else {
+				fmt.Print(renderInboxDedupePlan(plans))
+			}
+			return nil
+		}
+		for _, plan := range plans {
+			if plan.BlockedReason != "" {
+				return envelope.Newf(envelope.CodeInvalidArgs, "duplicate repair blocked for %s: %s", plan.Identity, plan.BlockedReason).
+					WithHint("review the records with `jobkit inbox duplicates`, then set one workflow owner to skipped")
+			}
+		}
+		merged, skipped := 0, 0
+		for _, plan := range plans {
+			if plan.LatestID != "" && plan.LatestID != plan.WinnerID {
+				latest, err := inbox.Find(items, plan.LatestID)
+				if err != nil {
+					return envelope.New(envelope.CodeInternal, err.Error())
+				}
+				job := latest.Job
+				if err := l.Append(inbox.Event{
+					ID: plan.WinnerID, Type: inbox.EvMerged, Source: "dedupe", Job: &job,
+					Note: "latest posting metadata from " + plan.LatestID,
+				}); err != nil {
+					return envelope.New(envelope.CodeIOFailed, err.Error())
+				}
+				merged++
+			}
+			for _, loserID := range plan.LoserIDs {
+				if err := l.Append(inbox.Event{
+					ID: loserID, Type: inbox.EvStatus, Status: "skipped",
+					Note: "duplicate of " + plan.WinnerID + " by stable posting identity",
+				}); err != nil {
+					return envelope.New(envelope.CodeIOFailed, err.Error())
+				}
+				skipped++
+			}
+		}
+		result := map[string]any{"applied": true, "group_count": len(plans), "metadata_merged": merged, "records_skipped": skipped}
+		if c.bool("json") {
+			envelope.EmitData(result)
+		} else {
+			fmt.Printf("repaired %d duplicate group(s): %d metadata merge(s), %d record(s) skipped\n", len(plans), merged, skipped)
 		}
 		return nil
 	case "list", "":
@@ -3213,7 +3270,7 @@ func cmdInbox(c *cli) error {
 		}
 		return nil
 	default:
-		return envelope.Newf(envelope.CodeInvalidArgs, "unknown inbox subcommand %q", sub).WithHint("add|recheck|slate|list|show|stale|set|note|outreach|form")
+		return envelope.Newf(envelope.CodeInvalidArgs, "unknown inbox subcommand %q", sub).WithHint("add|recheck|summary|duplicates|dedupe|slate|list|show|stale|set|note|outreach|form")
 	}
 }
 
@@ -3854,7 +3911,7 @@ CORE
   coach source|deck|run|stats|serve|study|path
   coach study mint|drafts|promote   extra items; JobKit still scores
   claims init|check|show|path
-  inbox add|recheck|slate|list|show|stale|set|note|outreach|form
+  inbox add|recheck|summary|duplicates|dedupe|slate|list|show|stale|set|note|outreach|form
   track add|list|show|set|note|board|stats|followups|remind
   company add|signal|list|show | contact add|list|import|…
   calibrate report|apply | jd parse|fetch | version | help
@@ -3998,6 +4055,9 @@ CLAIMS GATE (fact lock for generated material: ~/.jobkit/claims.yaml)
 INBOX (deduped pre-application queue: ~/.jobkit/inbox.jsonl)
   inbox add <jd|url|-> [--company X] [--role Y] [--location X] [--remote] [--source X]
   inbox recheck [--all]             reassess stored jobs against the current policy
+  inbox summary [--limit N]         bounded ready-role and integrity counts
+  inbox duplicates                 active records that identify one posting
+  inbox dedupe [--apply]            preview or append stable-identity repairs
   inbox slate [--platform 5] [--fullstack 3] [--adoption 1] [--stretch 1]
               [--employer-cap 2] [--out PATH|auto]
                                     deterministic weekly mix; assessed actionable jobs only

@@ -68,6 +68,12 @@ Actions use exact commit pins and test Linux, macOS, and Windows.
   must never rewrite `~/.jobkit/profile.yaml`.
 - Public board clients (Greenhouse, Lever, Ashby) are a detect/fetch registry.
   A new board is a new provider, not a `find` switch.
+- Public-board inbox identity is provider + board + external job ID. Mutable
+  title and URL fields cannot create a second record. Replay keeps legacy IDs,
+  the compact summary counts duplicate groups, and `inbox duplicates` lists
+  the exact description-free records. `inbox dedupe` previews repairs. Its
+  `--apply` mode appends merge and skipped-status events without deleting
+  history. More than one active workflow owner blocks the repair.
 
 ## When to revisit the stack
 

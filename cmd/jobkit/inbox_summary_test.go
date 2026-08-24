@@ -30,7 +30,37 @@ func TestRenderInboxSummaryIsCompact(t *testing.T) {
 		Ready: []inbox.SummaryItem{{ID: "acme--platform", Company: "Acme", Title: "Platform Engineer", Lane: inbox.LanePlatform, MatchScore: 84, Eligibility: eligibility.Eligible}},
 	}
 	text := renderInboxSummary(summary)
-	if !strings.Contains(text, "649 total") || !strings.Contains(text, "acme--platform") || len(text) > 500 {
+	if !strings.Contains(text, "649 total") || !strings.Contains(text, "0 active duplicate groups") || !strings.Contains(text, "acme--platform") || len(text) > 500 {
 		t.Fatalf("summary = %q", text)
+	}
+}
+
+func TestRenderInboxDuplicatesIsActionableAndDescriptionFree(t *testing.T) {
+	groups := []inbox.DuplicateGroup{{
+		Identity: "ats|greenhouse|acme|123",
+		Items: []inbox.DuplicateItem{
+			{ID: "old-id", Status: "new", Company: "Acme", Title: "Backend Engineer", Provider: "greenhouse", Board: "acme", ExternalID: "123"},
+			{ID: "new-id", Status: "planned", Company: "Acme", Title: "Platform Engineer", Provider: "greenhouse", Board: "acme", ExternalID: "123"},
+		},
+	}}
+	text := renderInboxDuplicates(groups)
+	if !strings.Contains(text, "Active duplicate groups: 1") || !strings.Contains(text, "old-id") || !strings.Contains(text, "new-id") {
+		t.Fatalf("duplicates = %q", text)
+	}
+	if strings.Contains(text, "description") {
+		t.Fatalf("duplicate output leaked a description field: %q", text)
+	}
+	if got := renderInboxDuplicates(nil); got != "no active duplicate inbox records\n" {
+		t.Fatalf("empty duplicates = %q", got)
+	}
+}
+
+func TestRenderInboxDedupePlanRequiresExplicitApply(t *testing.T) {
+	plans := []inbox.DuplicateRepair{{
+		Identity: "ats|greenhouse|acme|123", WinnerID: "keep-id", LatestID: "latest-id", LoserIDs: []string{"old-id"},
+	}}
+	text := renderInboxDedupePlan(plans)
+	if !strings.Contains(text, "keep: keep-id") || !strings.Contains(text, "skip: old-id") || !strings.Contains(text, "dedupe --apply") {
+		t.Fatalf("dedupe plan = %q", text)
 	}
 }

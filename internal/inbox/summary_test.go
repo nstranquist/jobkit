@@ -51,3 +51,40 @@ func TestBuildSummaryKeepsEmptyReadyListStable(t *testing.T) {
 		t.Fatalf("ready = %#v, want a non-nil empty list", summary.Ready)
 	}
 }
+
+func TestBuildSummaryReportsActiveStableIdentityDuplicates(t *testing.T) {
+	job := Job{Provider: "greenhouse", Board: "acme", ExternalID: "123", Company: "Acme", Title: "Backend Engineer"}
+	renamed := job
+	renamed.Title = "Platform Engineer"
+	items := []*Item{
+		{ID: "old-active", Status: "new", Job: job},
+		{ID: "new-active", Status: "planned", Job: renamed},
+		{ID: "archived-copy", Status: "skipped", Job: job},
+	}
+	summary := BuildSummary(items, 5)
+	if summary.ActiveDuplicateGroups != 1 || summary.ActiveDuplicateItems != 2 {
+		t.Fatalf("duplicate counts = groups:%d items:%d, want 1 group and 2 active items", summary.ActiveDuplicateGroups, summary.ActiveDuplicateItems)
+	}
+	groups := ActiveDuplicateGroups(items)
+	if len(groups) != 1 || len(groups[0].Items) != 2 || groups[0].Items[0].ID != "new-active" || groups[0].Items[1].ID != "old-active" {
+		t.Fatalf("duplicate groups = %#v", groups)
+	}
+	if groups[0].Items[0].ExternalID != "123" || groups[0].Items[0].URL != "" {
+		t.Fatalf("duplicate item shape = %#v", groups[0].Items[0])
+	}
+}
+
+func TestActiveDuplicateGroupsDoNotBridgeDifferentATSJobsThroughLegacyURL(t *testing.T) {
+	sharedURL := "https://example.com/apply"
+	first := Job{Provider: "greenhouse", Board: "acme", ExternalID: "1", Company: "Acme", Title: "Backend Engineer", URL: sharedURL}
+	legacy := Job{Company: "Acme", Title: "Backend Engineer", URL: sharedURL}
+	second := Job{Provider: "greenhouse", Board: "acme", ExternalID: "2", Company: "Acme", Title: "Platform Engineer", URL: sharedURL}
+	groups := ActiveDuplicateGroups([]*Item{
+		{ID: "ats-one", Status: "new", Job: first},
+		{ID: "legacy", Status: "new", Job: legacy},
+		{ID: "ats-two", Status: "new", Job: second},
+	})
+	if len(groups) != 1 || len(groups[0].Items) != 2 {
+		t.Fatalf("groups = %#v, want one legacy bridge without collapsing both ATS jobs", groups)
+	}
+}

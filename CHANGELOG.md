@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Stable posting identity** — inbox records from Greenhouse, Lever, and
+  Ashby now use provider + board + external job ID. A title or URL edit updates
+  the existing append-only history instead of creating a second job. Legacy
+  IDs stay valid. `inbox summary` counts active duplicate groups, and
+  `inbox duplicates` lists the exact description-free records. `inbox dedupe`
+  previews repairs. Its explicit `--apply` mode keeps one workflow owner,
+  moves the latest posting metadata, and marks extra records as skipped.
+  Greenhouse IDs remain exact decimal strings. Legacy scientific-notation IDs
+  normalize to the same posting identity.
+
 - **OSS study dump-fail** — explain/recall/defend answers that are only
   expected-concept tokens fail (`verdict=dump`). Extra honest OSS modules
   include SnapRef (public), Nicos DJ (Phase 0, no remote), and agenttrace

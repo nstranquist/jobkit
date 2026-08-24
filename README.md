@@ -49,7 +49,7 @@ contains personal data. Extra shots live in [screenshots/](screenshots/).
 | Eligibility gate | `jobkit eligibility init\|check\|show\|path` | Keeps hard constraints (geography, language, years, role family, work mode, travel, management/sales) separate from skill fit and opportunity; classifies each role `eligible`, `review`, or `ineligible` with reasons |
 | Job search | `jobkit find <query> --targets ai-infra [--eligibility actionable] [--inbox]` | Queries public Greenhouse/Lever/Ashby boards, normalizes postings, applies the eligibility policy before ranking, scores compensation/freshness/saturation/persona fit, warns on skipped boards by default, and can queue deduped results |
 | Ranking calibration | `jobkit calibrate report\|apply [--persona NAME]` | Learns opportunity-score weights from inbox/tracker outcomes, writes `~/.jobkit/calibration.yaml`, and automatically feeds calibrated weights back into `find`, `search run`, and `search digest` |
-| Inbox queue | `jobkit inbox add\|recheck\|slate\|list\|show\|stale\|set\|note\|outreach\|form` | Append-only pre-application queue with dedupe IDs, eligibility, fit, source/last-seen provenance, outreach drafts, and form-fill packets; `slate` enforces a deterministic weekly lane mix and employer cap |
+| Inbox queue | `jobkit inbox add\|recheck\|summary\|duplicates\|dedupe\|slate\|list\|show\|stale\|set\|note\|outreach\|form` | Append-only pre-application queue. It includes stable ATS identity, duplicate review and repair, fit, provenance, outreach drafts, and form-fill packets. `slate` enforces a fixed weekly lane mix and an employer cap. |
 | Claims gate | `jobkit claims init\|check\|show\|path` | Fact lock for generated material: an allowlist of verified quantified claims (`~/.jobkit/claims.yaml`); when present, resume/letter/apply generation fails closed on any number it can't trace to a verified claim |
 | Gap scoring | `jobkit match <jd>` | 0–100 weighted coverage score, matched skills with evidence class (declared/tagged/text), missing skills, tailoring advice |
 | Human-in-loop plan | `jobkit apply-plan <jd\|url\|inbox-id>` | Reviewable package with resume, letter, prep, match and eligibility receipts, raw JD, and checklist; ineligible roles fail closed unless a human records an explicit override; no submit |
@@ -78,6 +78,11 @@ jobkit find backend go --targets ai-infra --remote --sort opportunity --persona 
 jobkit search run backend-go --inbox
 jobkit search digest --inbox --out auto
 jobkit inbox recheck
+jobkit inbox summary
+jobkit inbox duplicates
+jobkit inbox dedupe          # preview only
+# After review:
+jobkit inbox dedupe --apply  # append merge and skipped-status events
 jobkit inbox list
 jobkit inbox slate --out auto  # 5 platform, 3 full-stack, 1 adoption/FDE, 1 stretch; max 2/company
 jobkit inbox stale --days 14
@@ -234,6 +239,11 @@ The complete stack rationale and revisit triggers are in
 - **The ledger is history.** `applications.jsonl` and `contacts.jsonl` are
   append-only; state is a replay. Cross-process file locks keep each appended
   event intact, so the funnel, follow-up, and referral trails are auditable.
+- **A posting keeps one identity.** Greenhouse, Lever, and Ashby jobs use the
+  provider, board, and external job ID. Employer edits to a title or URL update
+  the same inbox history. Manual jobs use a normalized posting URL when one is
+  available. Existing legacy inbox IDs remain valid. `inbox dedupe` previews
+  append-only repairs. Only `--apply` changes the ledger.
 - **Telemetry is bounded.** Schema v2 stores an allowlisted command identity,
   outcome, duration, and typed error only. Run `jobkit doctor telemetry` to
   count current, legacy, and invalid rows. Run it again with `--migrate` only

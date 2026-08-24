@@ -256,10 +256,10 @@ func splitPath(path string) []string {
 func fetchGreenhouse(ctx context.Context, client *http.Client, board Board) ([]Job, error) {
 	var payload struct {
 		Jobs []struct {
-			ID          any    `json:"id"`
-			Title       string `json:"title"`
-			AbsoluteURL string `json:"absolute_url"`
-			Content     string `json:"content"`
+			ID          json.Number `json:"id"`
+			Title       string      `json:"title"`
+			AbsoluteURL string      `json:"absolute_url"`
+			Content     string      `json:"content"`
 			Location    struct {
 				Name string `json:"name"`
 			} `json:"location"`
@@ -286,7 +286,7 @@ func fetchGreenhouse(ctx context.Context, client *http.Client, board Board) ([]J
 		jobs = append(jobs, Job{
 			Provider:    "greenhouse",
 			Board:       board.Slug,
-			ID:          fmt.Sprint(raw.ID),
+			ID:          raw.ID.String(),
 			Title:       raw.Title,
 			Company:     board.Slug,
 			Department:  firstDepartment(raw.Departments),

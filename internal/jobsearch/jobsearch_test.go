@@ -33,7 +33,7 @@ func TestSearchFetchesAndFiltersPublicBoards(t *testing.T) {
 		}
 		writeJSON(t, w, map[string]any{"jobs": []any{
 			map[string]any{
-				"id": 101, "title": "Senior Backend Engineer", "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/101",
+				"id": 6100023004, "title": "Senior Backend Engineer", "absolute_url": "https://job-boards.greenhouse.io/acme/jobs/6100023004",
 				"location": map[string]any{"name": "Remote US"}, "content": "<p>Build APIs in Go and Postgres.</p>",
 				"departments": []any{map[string]any{"name": "Engineering"}},
 			},
@@ -83,7 +83,7 @@ func TestSearchFetchesAndFiltersPublicBoards(t *testing.T) {
 	if len(jobs) != 2 {
 		t.Fatalf("jobs = %#v, want 2 remote backend go matches", jobs)
 	}
-	if jobs[0].Provider != "greenhouse" || jobs[0].Title != "Senior Backend Engineer" {
+	if jobs[0].Provider != "greenhouse" || jobs[0].Title != "Senior Backend Engineer" || jobs[0].ID != "6100023004" {
 		t.Fatalf("first result = %#v, want Greenhouse backend engineer ranked first", jobs[0])
 	}
 	if jobs[1].Provider != "lever" {

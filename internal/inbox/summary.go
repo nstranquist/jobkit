@@ -25,6 +25,25 @@ type SummaryItem struct {
 	Eligibility eligibility.Status `json:"eligibility"`
 }
 
+// DuplicateItem is a description-free identity record for duplicate review.
+type DuplicateItem struct {
+	ID         string `json:"id"`
+	Status     string `json:"status"`
+	Company    string `json:"company,omitempty"`
+	Title      string `json:"title"`
+	Provider   string `json:"provider,omitempty"`
+	Board      string `json:"board,omitempty"`
+	ExternalID string `json:"external_id,omitempty"`
+	URL        string `json:"url,omitempty"`
+}
+
+// DuplicateGroup contains active inbox records that identify one posting.
+// It omits job descriptions and event histories.
+type DuplicateGroup struct {
+	Identity string          `json:"identity"`
+	Items    []DuplicateItem `json:"items"`
+}
+
 // Summary reports the complete inbox counts and a bounded list of roles that
 // are ready for an application plan.
 type Summary struct {
@@ -34,6 +53,8 @@ type Summary struct {
 	Closed                 int            `json:"closed"`
 	Unassessed             int            `json:"unassessed"`
 	HardConstraintsPending int            `json:"hard_constraints_pending"`
+	ActiveDuplicateGroups  int            `json:"active_duplicate_groups"`
+	ActiveDuplicateItems   int            `json:"active_duplicate_items"`
 	ReadyTotal             int            `json:"ready_total"`
 	Returned               int            `json:"returned"`
 	Truncated              bool           `json:"truncated"`
@@ -112,5 +133,81 @@ func BuildSummary(items []*Item, limit int) Summary {
 	}
 	result.Ready = ready
 	result.Returned = len(ready)
+	duplicates := ActiveDuplicateGroups(items)
+	result.ActiveDuplicateGroups = len(duplicates)
+	for _, group := range duplicates {
+		result.ActiveDuplicateItems += len(group.Items)
+	}
 	return result
+}
+
+// ActiveDuplicateGroups returns each set of non-terminal records that identify
+// one posting. The result is stable and contains no job descriptions.
+func ActiveDuplicateGroups(items []*Item) []DuplicateGroup {
+	active := make([]*Item, 0, len(items))
+	for _, item := range items {
+		if item != nil && !TerminalStatuses[item.Status] {
+			active = append(active, item)
+		}
+	}
+	parents := make([]int, len(active))
+	identities := make([]postingIdentity, len(active))
+	componentATS := make([]string, len(active))
+	for i := range parents {
+		parents[i] = i
+		identities[i] = postingIdentityFor(active[i].Job)
+		componentATS[i] = identities[i].ATS
+	}
+	find := func(i int) int {
+		for parents[i] != i {
+			parents[i] = parents[parents[i]]
+			i = parents[i]
+		}
+		return i
+	}
+	for i := range active {
+		for j := i + 1; j < len(active); j++ {
+			if !samePostingIdentity(identities[i], identities[j]) {
+				continue
+			}
+			left, right := find(i), find(j)
+			if left != right {
+				if componentATS[left] != "" && componentATS[right] != "" && componentATS[left] != componentATS[right] {
+					continue
+				}
+				parents[right] = left
+				if componentATS[left] == "" {
+					componentATS[left] = componentATS[right]
+				}
+			}
+		}
+	}
+	byRoot := map[int][]*Item{}
+	for i := range active {
+		root := find(i)
+		byRoot[root] = append(byRoot[root], active[i])
+	}
+	groups := make([]DuplicateGroup, 0)
+	for _, groupItems := range byRoot {
+		if len(groupItems) < 2 {
+			continue
+		}
+		sort.SliceStable(groupItems, func(i, j int) bool { return groupItems[i].ID < groupItems[j].ID })
+		group := DuplicateGroup{Identity: IdentityKey(groupItems[0].Job), Items: make([]DuplicateItem, 0, len(groupItems))}
+		for _, item := range groupItems {
+			group.Items = append(group.Items, DuplicateItem{
+				ID: item.ID, Status: item.Status, Company: item.Job.Company, Title: item.Job.Title,
+				Provider: item.Job.Provider, Board: item.Job.Board, ExternalID: item.Job.ExternalID,
+				URL: firstNonEmpty(item.Job.URL, item.Job.ApplyURL, item.Job.SourceURL),
+			})
+		}
+		groups = append(groups, group)
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		if len(groups[i].Items) != len(groups[j].Items) {
+			return len(groups[i].Items) > len(groups[j].Items)
+		}
+		return groups[i].Identity < groups[j].Identity
+	})
+	return groups
 }

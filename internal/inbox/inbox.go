@@ -9,9 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +40,7 @@ func ValidStatus(s string) bool {
 const (
 	EvSaved    = "saved"
 	EvSeen     = "seen"
+	EvMerged   = "duplicate_merged"
 	EvAssessed = "eligibility_assessed"
 	EvStatus   = "status_changed"
 	EvNote     = "note"
@@ -109,9 +113,59 @@ func FromSearchJob(job jobsearch.Job) Job {
 }
 
 func NewID(job Job) string {
-	base := Slugify(firstNonEmpty(job.Company, job.Board, job.Provider, "job")) + "--" + Slugify(firstNonEmpty(job.Title, job.ExternalID, "role"))
-	sum := sha1.Sum([]byte(dedupeKey(job)))
-	return strings.Trim(base, "-") + "-" + hex.EncodeToString(sum[:])[:8]
+	owner := Slugify(firstNonEmpty(job.Board, job.Company, job.Provider, "job"))
+	if owner == "" {
+		owner = "job"
+	}
+	posting := Slugify(canonicalExternalID(identityPart(job.Provider), job.ExternalID))
+	if posting == "" {
+		posting = "job"
+	}
+	sum := sha1.Sum([]byte(IdentityKey(job)))
+	return owner + "--" + posting + "-" + hex.EncodeToString(sum[:])[:8]
+}
+
+// IdentityKey returns the strongest stable identity available for a posting.
+// Public ATS records use provider + board + external ID, which does not change
+// when an employer edits the title or posting URLs. Manual records fall back
+// to a normalized posting URL, then company + title when no URL exists.
+func IdentityKey(job Job) string {
+	identity := postingIdentityFor(job)
+	if identity.ATS != "" {
+		return "ats|" + identity.ATS
+	}
+	if len(identity.URLs) > 0 {
+		return "url|" + identity.URLs[0]
+	}
+	return "fallback|" + identity.Fallback
+}
+
+// SamePosting reports whether two records identify the same external job.
+// Two complete ATS identities are authoritative. A URL match also supports
+// legacy records that predate provider identity fields.
+func SamePosting(a, b Job) bool {
+	return samePostingIdentity(postingIdentityFor(a), postingIdentityFor(b))
+}
+
+// ResolveID preserves an existing ledger ID when a posting is seen again.
+// This keeps old append-only histories addressable after the identity rule
+// changes and after an employer edits a title. If duplicate legacy records
+// exist, applied and active workflow records win over skipped history.
+func ResolveID(items []*Item, job Job) string {
+	want := postingIdentityFor(job)
+	var best *Item
+	for _, item := range items {
+		if item == nil || !samePostingIdentity(want, postingIdentityFor(item.Job)) {
+			continue
+		}
+		if best == nil || preferIdentityOwner(item, best) {
+			best = item
+		}
+	}
+	if best != nil {
+		return best.ID
+	}
+	return NewID(job)
 }
 
 func NextAction(score float64) string {
@@ -307,11 +361,126 @@ func statusRank(status string) int {
 	return len(Statuses)
 }
 
-func dedupeKey(job Job) string {
-	return strings.ToLower(strings.Join([]string{
-		firstNonEmpty(job.ApplyURL, job.URL),
-		job.Provider, job.Board, job.ExternalID, job.Company, job.Title,
-	}, "|"))
+type postingIdentity struct {
+	ATS      string
+	URLs     []string
+	Fallback string
+}
+
+func postingIdentityFor(job Job) postingIdentity {
+	provider := identityPart(job.Provider)
+	board := identityPart(job.Board)
+	externalID := canonicalExternalID(provider, job.ExternalID)
+	ats := ""
+	if provider != "" && board != "" && externalID != "" {
+		ats = strings.Join([]string{provider, board, externalID}, "|")
+	}
+
+	seenURLs := map[string]bool{}
+	urls := make([]string, 0, 3)
+	for _, raw := range []string{job.URL, job.ApplyURL, job.SourceURL} {
+		normalized := normalizePostingURL(raw)
+		if normalized == "" || seenURLs[normalized] {
+			continue
+		}
+		seenURLs[normalized] = true
+		urls = append(urls, normalized)
+	}
+	return postingIdentity{
+		ATS:      ats,
+		URLs:     urls,
+		Fallback: identityPart(job.Company) + "|" + identityPart(job.Title),
+	}
+}
+
+func samePostingIdentity(a, b postingIdentity) bool {
+	if a.ATS != "" && b.ATS != "" {
+		return a.ATS == b.ATS
+	}
+	for _, aURL := range a.URLs {
+		for _, bURL := range b.URLs {
+			if aURL == bURL {
+				return true
+			}
+		}
+	}
+	return a.ATS == "" && b.ATS == "" && len(a.URLs) == 0 && len(b.URLs) == 0 && a.Fallback != "|" && a.Fallback == b.Fallback
+}
+
+func preferIdentityOwner(candidate, current *Item) bool {
+	candidateRank := identityStatusRank(candidate.Status)
+	currentRank := identityStatusRank(current.Status)
+	if candidateRank != currentRank {
+		return candidateRank < currentRank
+	}
+	if !candidate.LastSeenAt.Equal(current.LastSeenAt) {
+		return candidate.LastSeenAt.After(current.LastSeenAt)
+	}
+	if !candidate.UpdatedAt.Equal(current.UpdatedAt) {
+		return candidate.UpdatedAt.After(current.UpdatedAt)
+	}
+	return candidate.ID < current.ID
+}
+
+func identityStatusRank(status string) int {
+	switch status {
+	case "applied":
+		return 0
+	case "planned":
+		return 1
+	case "shortlisted":
+		return 2
+	case "new", "":
+		return 3
+	case "skipped":
+		return 4
+	case "archived":
+		return 5
+	default:
+		return 6
+	}
+}
+
+func identityPart(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(value), " "))
+}
+
+func canonicalExternalID(provider, value string) string {
+	value = identityPart(value)
+	if provider != "greenhouse" {
+		return value
+	}
+	number, err := strconv.ParseFloat(value, 64)
+	if err == nil && number >= 0 && number <= 9007199254740991 && number == math.Trunc(number) {
+		return strconv.FormatInt(int64(number), 10)
+	}
+	return value
+}
+
+func normalizePostingURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return strings.TrimSuffix(raw, "/")
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	parsed.Host = strings.ToLower(parsed.Host)
+	parsed.Fragment = ""
+	if parsed.Path != "/" {
+		parsed.Path = strings.TrimSuffix(parsed.Path, "/")
+	}
+	query := parsed.Query()
+	for key := range query {
+		lower := strings.ToLower(key)
+		if strings.HasPrefix(lower, "utm_") || lower == "gh_src" || lower == "lever-origin" || lower == "ref" || lower == "referrer" {
+			query.Del(key)
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }
 
 func jdText(title, company, desc string) string {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nstranquist/jobkit/internal/calibration"
 	"github.com/nstranquist/jobkit/internal/company"
@@ -167,6 +168,98 @@ func TestSaveJobsToInboxDedupesWithinRun(t *testing.T) {
 	}
 	if len(items[0].Events) != 2 {
 		t.Fatalf("events = %d, want 2", len(items[0].Events))
+	}
+}
+
+func TestSaveJobsToInboxTreatsATSTitleChangeAsSeen(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	job := jobsearch.Job{
+		Provider: "greenhouse", Board: "acme", ID: "job-123", Company: "Acme",
+		Title: "Backend Engineer", URL: "https://example.com/jobs/backend",
+		ApplyURL: "https://example.com/apply/backend", Description: "Build backend services in Go.",
+	}
+	first, err := saveJobsToInbox([]jobsearch.Job{job}, "backend", "test:first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.New != 1 || first.Seen != 0 {
+		t.Fatalf("first stats = %#v, want 1 new", first)
+	}
+	job.Title = "Senior Platform Engineer"
+	job.URL = "https://example.com/jobs/platform"
+	job.ApplyURL = "https://example.com/apply/platform"
+	second, err := saveJobsToInbox([]jobsearch.Job{job}, "platform", "test:second")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.New != 0 || second.Seen != 1 {
+		t.Fatalf("second stats = %#v, want title change to count as seen", second)
+	}
+	l, err := openInboxLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := l.Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || len(items[0].Events) != 2 {
+		t.Fatalf("items = %#v, want one history with two events", items)
+	}
+	if items[0].Job.Title != "Senior Platform Engineer" {
+		t.Fatalf("latest title = %q, want updated posting metadata", items[0].Job.Title)
+	}
+}
+
+func TestInboxDedupeApplyPreservesWorkflowOwnerAndLatestMetadata(t *testing.T) {
+	t.Setenv("JOBKIT_HOME", t.TempDir())
+	l, err := openInboxLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Date(2026, 8, 20, 10, 0, 0, 0, time.UTC)
+	oldJob := inbox.Job{Provider: "ashby", Board: "acme", ExternalID: "123", Company: "Acme", Title: "Backend Engineer"}
+	newJob := oldJob
+	newJob.Title = "Platform Engineer"
+	if err := l.Append(inbox.Event{TS: t0, ID: "planned-old", Type: inbox.EvSaved, Status: "planned", Job: &oldJob}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Append(inbox.Event{TS: t0.Add(time.Hour), ID: "new-latest", Type: inbox.EvSaved, Status: "new", Job: &newJob}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdInbox(parseArgs([]string{"inbox", "dedupe", "--json"})); err != nil {
+		t.Fatal(err)
+	}
+	before, err := l.Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before[0].Events)+len(before[1].Events) != 2 {
+		t.Fatalf("preview changed the ledger: %#v", before)
+	}
+	if err := cmdInbox(parseArgs([]string{"inbox", "dedupe", "--apply", "--json"})); err != nil {
+		t.Fatal(err)
+	}
+	after, err := l.Replay()
+	if err != nil {
+		t.Fatal(err)
+	}
+	winner, err := inbox.Find(after, "planned-old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loser, err := inbox.Find(after, "new-latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winner.Status != "planned" || winner.Job.Title != "Platform Engineer" || winner.SeenCount != 1 {
+		t.Fatalf("winner = %#v, want planned workflow with latest metadata and unchanged seen count", winner)
+	}
+	if loser.Status != "skipped" {
+		t.Fatalf("loser status = %q, want skipped", loser.Status)
+	}
+	if got := inbox.ActiveDuplicateGroups(after); len(got) != 0 {
+		t.Fatalf("active duplicates after repair = %#v", got)
 	}
 }
 
