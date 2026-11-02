@@ -59,7 +59,7 @@ const config: Config = {
     },
     footer: {
       style: 'dark',
-      copyright: `Docusaurus comparison lab · JobKit v0.10.0 · MIT`,
+      copyright: `Docusaurus comparison lab · JobKit v0.10.1 · MIT`,
     },
     prism: {theme: prismThemes.github, darkTheme: prismThemes.dracula},
   } satisfies Preset.ThemeConfig,

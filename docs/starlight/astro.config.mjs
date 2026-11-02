@@ -9,7 +9,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'JobKit',
-			description: 'Local-first job-search toolkit. v0.10.0.',
+			description: 'Local-first job-search toolkit. v0.10.1.',
 			tagline: 'Finds roles. Scores fit. Prepares packages. Does not submit.',
 			lastUpdated: true,
 			pagination: true,

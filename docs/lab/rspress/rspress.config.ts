@@ -5,7 +5,7 @@ export default defineConfig({
   root: path.join(__dirname, 'docs'),
   lang: 'en',
   title: 'JobKit',
-  description: 'Local-first job-search toolkit. v0.10.0.',
+  description: 'Local-first job-search toolkit. v0.10.1.',
   llms: true,
   themeConfig: {
     darkMode: 'dark',
@@ -25,7 +25,7 @@ export default defineConfig({
       },
     ],
     footer: {
-      message: 'Rspress comparison lab · JobKit v0.10.0 · MIT',
+      message: 'Rspress comparison lab · JobKit v0.10.1 · MIT',
     },
     llmsUI: {
       injectLlmsHint: true,

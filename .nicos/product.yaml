@@ -39,7 +39,7 @@ checks:
         - /dev/null
         - ./cmd/jobkit
 description: >-
-    Local-first Go job-search toolkit (single binary, v0.10.0). JobKit combines a
+    Local-first Go job-search toolkit (single binary, v0.10.1). JobKit combines a
     trusted YAML profile, explainable eligibility policy, saved board searches,
     company and referral intelligence, a deduplicated inbox, JD parsing,
     deterministic fit scoring, verified nicos-resume artifact selection,

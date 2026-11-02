@@ -6,7 +6,7 @@ import { defineConfig } from 'vitepress'
 // custom containers, badges, external-link icons, dark default, theme slots.
 export default defineConfig({
   title: 'JobKit',
-  description: 'Local-first job-search toolkit. v0.9.0.',
+  description: 'Local-first job-search toolkit. v0.10.1.',
   lang: 'en-US',
   lastUpdated: true,
   cleanUrls: true,
@@ -117,7 +117,7 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/nstranquist/jobkit' },
     ],
     footer: {
-      message: 'VitePress comparison lab · JobKit v0.9.0',
+      message: 'VitePress comparison lab · JobKit v0.10.1',
       copyright: 'MIT · local-first, no submit',
     },
   },

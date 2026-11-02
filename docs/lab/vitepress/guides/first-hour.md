@@ -3,7 +3,7 @@ title: First hour
 description: Profile, constraints, discover, prepare.
 ---
 
-# First hour <Badge type="tip" text="v0.10.0" />
+# First hour <Badge type="tip" text="v0.10.1" />
 
 ::: info Contract
 JobKit finds roles, scores fit, and prepares a package. A human submits it. Claims fail closed.

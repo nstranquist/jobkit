@@ -1,6 +1,6 @@
 # JobKit docs (Starlight comparison)
 
-Astro Starlight rendering of the JobKit v0.10.0 operator guide. The custom
+Astro Starlight rendering of the JobKit v0.10.1 operator guide. The custom
 single-file HTML sibling is [`../human/jobkit.html`](../human/jobkit.html).
 
 ```sh

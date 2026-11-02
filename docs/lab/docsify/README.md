@@ -1,6 +1,6 @@
 # JobKit
 
-Local-first job-search toolkit. **v0.10.0.**
+Local-first job-search toolkit. **v0.10.1.**
 
 Finds roles, scores fit, prepares packages, and tracks the funnel.
 

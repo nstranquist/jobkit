@@ -6,7 +6,7 @@ const { Layout } = DefaultTheme
 <template>
   <Layout>
     <template #aside-outline-before>
-      <p class="lab-chip">VitePress lab · v0.9.0</p>
+      <p class="lab-chip">VitePress lab · v0.10.1</p>
     </template>
   </Layout>
 </template>

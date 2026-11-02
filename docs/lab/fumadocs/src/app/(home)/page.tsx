@@ -26,7 +26,7 @@ const cards = [
 export default function HomePage() {
   return (
     <div className="flex flex-col flex-1 max-w-3xl mx-auto px-6 py-20">
-      <p className="text-sm text-fd-muted-foreground mb-3">Fumadocs comparison lab · v0.10.0</p>
+      <p className="text-sm text-fd-muted-foreground mb-3">Fumadocs comparison lab · v0.10.1</p>
       <h1 className="text-5xl font-bold tracking-tight mb-4">JobKit</h1>
       <p className="text-lg text-fd-muted-foreground mb-8 max-w-2xl">
         Local-first job-search toolkit. Finds roles, scores fit, prepares

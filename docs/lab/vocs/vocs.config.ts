@@ -4,7 +4,7 @@ import { defineConfig } from 'vocs'
 // landing layout, steps/callouts, editLink, socials, accent theme.
 export default defineConfig({
   title: 'JobKit',
-  description: 'Local-first job-search toolkit. v0.10.0.',
+  description: 'Local-first job-search toolkit. v0.10.1.',
   checkDeadlinks: 'warn',
   editLink: {
     pattern: 'https://github.com/nstranquist/jobkit/edit/main/docs/lab/vocs/docs/pages/:path',
@@ -24,7 +24,7 @@ export default defineConfig({
   },
   banner: {
     dismissable: true,
-    content: 'Vocs comparison lab · JobKit v0.10.0 · Ask-in-ChatGPT and llms.txt are on.',
+    content: 'Vocs comparison lab · JobKit v0.10.1 · Ask-in-ChatGPT and llms.txt are on.',
   },
   llms: {
     generateMarkdown: true,
