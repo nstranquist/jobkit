@@ -43,7 +43,7 @@ import (
 	"github.com/nstranquist/jobkit/internal/track"
 )
 
-const version = "0.10.0"
+const version = "0.10.1"
 
 // boolFlags take no value; everything else consumes one.
 var boolFlags = map[string]bool{

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.10.1] — 2026-11-02
+
 - **Security patch** — Go 1.26.10 and golang.org/x/net v0.62.0 (x/sys v0.49.0)
   clear 11 reachable govulncheck findings in net/http, crypto/tls,
   crypto/x509, net/textproto, and x/net/http2.

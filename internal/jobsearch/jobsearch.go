@@ -401,7 +401,7 @@ func getJSON(ctx context.Context, client *http.Client, endpoint string, dest any
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "jobkit/0.10.0 (+https://github.com/nstranquist/jobkit)")
+	req.Header.Set("User-Agent", "jobkit/0.10.1 (+https://github.com/nstranquist/jobkit)")
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
