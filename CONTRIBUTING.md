@@ -14,7 +14,7 @@ make publish-ready # full publication gate (verify + gitleaks)
 make demo          # isolated JOBKIT_HOME; never reads ~/.jobkit
 ```
 
-Requires Go 1.26.6. CI tests Linux, macOS, and Windows with that patch release.
+Requires Go 1.26.10. CI tests Linux, macOS, and Windows with that patch release.
 
 ## Agent-friendly contract
 
