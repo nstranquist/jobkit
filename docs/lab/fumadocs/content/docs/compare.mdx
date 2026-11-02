@@ -3,7 +3,7 @@ title: Compare with the custom HTML guide
 description: How to open Starlight and the single-file HTML guide side by side.
 ---
 
-This Starlight site and the custom HTML guide carry the **same JobKit v0.9.0 facts**. They differ in chrome, search, and how content is authored.
+This Starlight site and the custom HTML guide carry the **same JobKit v0.10.0 facts**. They differ in chrome, search, and how content is authored.
 
 ## Open both
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-14
 Evidence: `ndev browser` viewport shots in [`shots/`](shots/) (1440×900).
-Same JobKit v0.9.0 facts in every viewer.
+Same JobKit v0.10.0 facts in every viewer.
 
 ## Final ranking (after taste pass)
 

@@ -15,7 +15,7 @@ This page exists so the comparison is not a default theme with three nav links. 
 | Nav dropdowns | Guide and Workflow in the top bar |
 | Collapsible sidebar | Reference group starts collapsed |
 | Outline label | **On this page** in the right rail |
-| Theme slot | The `VitePress lab · v0.9.0` chip above the outline |
+| Theme slot | The `VitePress lab · v0.10.0` chip above the outline |
 | Edit link | Footer of every Markdown page |
 | lastUpdated | Footer, from git when the file is committed |
 | Local search, detailed view | Search control. No Algolia |

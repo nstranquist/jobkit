@@ -1,6 +1,6 @@
 # JobKit documentation comparison lab
 
-Same JobKit v0.9.0 operator facts, several viewers.
+Same JobKit v0.10.0 operator facts, several viewers.
 
 Open [`hub.html`](hub.html) after the servers below are up.
 

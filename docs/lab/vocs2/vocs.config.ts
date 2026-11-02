@@ -2,7 +2,7 @@ import { defineConfig } from 'vocs/config'
 
 export default defineConfig({
   title: 'JobKit',
-  description: 'Local-first job-search toolkit. v0.9.0.',
+  description: 'Local-first job-search toolkit. v0.10.0.',
   checkDeadlinks: 'warn',
   editLink: {
     pattern:

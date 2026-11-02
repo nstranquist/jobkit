@@ -26,5 +26,5 @@ jobkit version
 The default state directory is `~/.jobkit`. Set `JOBKIT_HOME` to use a different directory.
 
 ::: tip Proof
-`jobkit version` prints `0.9.0`. `make demo` runs the full walkthrough in an isolated home and never reads your real state.
+`jobkit version` prints `0.10.0`. `make demo` runs the full walkthrough in an isolated home and never reads your real state.
 :::

@@ -67,7 +67,7 @@ prototype. Starlight already beat it on navigation and search.
 
 ## Comparison lab
 
-Same JobKit v0.9.0 facts, six viewers:
+Same JobKit v0.10.0 facts, six viewers:
 
 | Viewer | Port | Distinctive features we turned on |
 |---|---|---|

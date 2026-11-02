@@ -5,7 +5,7 @@ sidebar_position: 0
 
 # JobKit
 
-Local-first job-search toolkit. v0.9.0.
+Local-first job-search toolkit. v0.10.0.
 
 Finds roles, scores fit, prepares packages, and tracks the funnel. It does **not** submit applications. It does **not** invent experience.
 

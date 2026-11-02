@@ -1,5 +1,5 @@
 site_name: JobKit
-site_description: Local-first job-search toolkit. v0.9.0.
+site_description: Local-first job-search toolkit. v0.10.0.
 site_url: http://127.0.0.1:4325
 repo_url: https://github.com/nstranquist/jobkit
 theme:
