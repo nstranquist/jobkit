@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.10.0] — 2026-11-02
+
 - **Stable posting identity** — inbox records from Greenhouse, Lever, and
   Ashby now use provider + board + external job ID. A title or URL edit updates
   the existing append-only history instead of creating a second job. Legacy
